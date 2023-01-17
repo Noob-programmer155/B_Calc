@@ -15,3 +15,8 @@ val secondaryColDark = Color(0xFF6D67E4)
 val secondaryColVariantDark = Color(0xFF4B56D2)
 val errorColDark = Color(0xFF9C254D)
 val backgroundColDark = Color(0xFF263159)
+
+val defaultNoteColor = Color(0xFFFDA769)
+val defaultNoteBorderColor = Color(0xFFFF8B13)
+val defaultNoteColorDark = Color(0xFF61876E)
+val defaultNoteBorderColorDark = Color(0xFF3C6255)

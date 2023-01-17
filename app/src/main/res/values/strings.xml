@@ -1,8 +1,11 @@
 <resources>
     <string name="app_name">BCalc</string>
-    <string name="menu_btn">menu_btn</string>
+    <string name="menu_btn">Menu</string>
     <string name="scroll_to_top">scrolltop</string>
-    <string name="home_navigation">home</string>
-    <string name="adding_note_calc_navigation">note_calculator</string>
-    <string name="visualisation_navigation">visualisation_data</string>
+    <string name="home_navigation">Home</string>
+    <string name="adding_note_calc_navigation">Notes</string>
+    <string name="visualization_navigation">Visualization</string>
+    <string name="note_item">note_items</string>
+    <string name="visualization_navigation_item">Items</string>
+    <string name="visualization_navigation_note">Notes</string>
 </resources>

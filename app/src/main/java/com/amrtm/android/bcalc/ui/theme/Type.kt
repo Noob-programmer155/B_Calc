@@ -14,22 +14,37 @@ val Typography = Typography(
     h1 = TextStyle(
         fontFamily = FontFamily(Font(R.font.balsamiq_sans_bold)),
         fontWeight = FontWeight.Bold,
-        fontSize = 30.sp
+        fontSize = 35.sp
     ),
     h2 = TextStyle(
         fontFamily = FontFamily(Font(R.font.balsamiq_sans_bold)),
         fontWeight = FontWeight.Bold,
-        fontSize = 20.sp
+        fontSize = 29.sp
     ),
     h3 = TextStyle(
         fontFamily = FontFamily(Font(R.font.balsamiq_sans_bold)),
         fontWeight = FontWeight.Bold,
-        fontSize = 14.sp
+        fontSize = 25.sp
+    ),
+    h4 = TextStyle(
+        fontFamily = FontFamily(Font(R.font.balsamiq_sans_bold)),
+        fontWeight = FontWeight.Bold,
+        fontSize = 21.sp
+    ),
+    h5 = TextStyle(
+        fontFamily = FontFamily(Font(R.font.balsamiq_sans_bold)),
+        fontWeight = FontWeight.Bold,
+        fontSize = 18.sp
+    ),
+    h6 = TextStyle(
+        fontFamily = FontFamily(Font(R.font.balsamiq_sans_bold)),
+        fontWeight = FontWeight.Bold,
+        fontSize = 15.sp
     ),
     body1 = TextStyle(
         fontFamily = FontFamily(Font(R.font.belgrano)),
         fontWeight = FontWeight.Normal,
-        fontSize = 14.sp
+        fontSize = 12.sp
     ),
     button = TextStyle(
         fontFamily = FontFamily.Monospace,
@@ -40,6 +55,6 @@ val Typography = Typography(
         fontFamily = FontFamily(Font(R.font.akaya_telivigala)),
         fontWeight = FontWeight.Light,
         fontStyle = FontStyle.Italic,
-        fontSize = 12.sp
+        fontSize = 10.sp
     )
 )
