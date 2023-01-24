@@ -21,7 +21,7 @@ data class NavigationItem(
     val name: Navigation
 )
 
-class DataLoader () {
+class NavigationLoader () {
     fun DefaultItem(): List<NavigationItem> {
         return listOf<NavigationItem>(
             NavigationItem(Icons.Default.Home, Navigation.Home),

@@ -32,8 +32,8 @@ private val LightColorPalette = lightColors(
     error = errorCol,
     onPrimary = Color.White,
     onSecondary = Color.White,
-    onBackground = backgroundCol,
-    onSurface = backgroundCol,
+    onBackground = onBackgroundCol,
+    onSurface = onBackgroundCol,
     onError = Color.White
 )
 

@@ -8,4 +8,5 @@
     <string name="note_item">note_items</string>
     <string name="visualization_navigation_item">Items</string>
     <string name="visualization_navigation_note">Notes</string>
+    <string name="balance_data_name_id">balance</string>
 </resources>

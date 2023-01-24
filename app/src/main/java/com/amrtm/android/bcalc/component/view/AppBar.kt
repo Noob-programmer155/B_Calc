@@ -1,4 +1,4 @@
-package com.amrtm.android.bcalc.component
+package com.amrtm.android.bcalc.component.view
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -22,8 +22,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.amrtm.android.bcalc.R
-import com.amrtm.android.bcalc.component.data.DataLoader
 import com.amrtm.android.bcalc.component.data.NavigationItem
+import com.amrtm.android.bcalc.component.data.NavigationLoader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -33,7 +33,7 @@ fun AppBar(
     thread: CoroutineScope = rememberCoroutineScope(),
     navigationController: NavHostController,
     isFullScreen: Boolean,
-    navigationItems: List<NavigationItem> = DataLoader().DefaultItem(),
+    navigationItems: List<NavigationItem> = NavigationLoader().DefaultItem(),
     content: @Composable () -> Unit
 ) {
     TopBar(openState = openState, thread = thread)
@@ -97,7 +97,7 @@ private fun NavigationDrawer(
         drawerState = state,
         drawerElevation = 12.dp,
         drawerContent = {
-            LazyColumn {
+            LazyColumn (horizontalAlignment = Alignment.Start) {
                 items(dataItems) {
                     IconButton(onClick = { navController.navigate(route = it.name.link) }) {
                         Icon(imageVector = it.icon, contentDescription = stringResource(id = it.name.resId))
@@ -109,7 +109,7 @@ private fun NavigationDrawer(
         }
     ) {
         if (isFullScreen)
-            LazyColumn {
+            LazyColumn (horizontalAlignment = Alignment.CenterHorizontally) {
                 items(dataItems) {
                     IconButton(onClick = { navController.navigate(route = it.name.link) }) {
                         Icon(imageVector = it.icon, contentDescription = stringResource(id = it.name.resId))

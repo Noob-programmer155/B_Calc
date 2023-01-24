@@ -7,7 +7,7 @@ val primaryColVariant = Color(0xFF3C79F5)
 val secondaryCol = Color(0xFF91D8E4)
 val secondaryColVariant = Color(0xFF82AAE3)
 val errorCol = Color(0xFFFF0032)
-val backgroundCol = Color(0xFF181D31)
+val onBackgroundCol = Color(0xFF181D31)
 
 val primaryColDark = Color(0xFF453C67)
 val primaryColVariantDark = Color(0xFF1C315E)
