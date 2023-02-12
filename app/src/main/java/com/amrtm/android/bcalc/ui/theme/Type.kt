@@ -12,34 +12,34 @@ import com.amrtm.android.bcalc.R
 // Set of Material typography styles to start with
 val Typography = Typography(
     h1 = TextStyle(
-        fontFamily = FontFamily(Font(R.font.balsamiq_sans_bold)),
+        fontFamily = FontFamily(Font(R.font.abeezee)),
         fontWeight = FontWeight.Bold,
-        fontSize = 35.sp
+        fontSize = 24.sp
     ),
     h2 = TextStyle(
-        fontFamily = FontFamily(Font(R.font.balsamiq_sans_bold)),
+        fontFamily = FontFamily(Font(R.font.abeezee)),
         fontWeight = FontWeight.Bold,
-        fontSize = 29.sp
+        fontSize = 22.sp
     ),
     h3 = TextStyle(
-        fontFamily = FontFamily(Font(R.font.balsamiq_sans_bold)),
+        fontFamily = FontFamily(Font(R.font.abeezee)),
         fontWeight = FontWeight.Bold,
-        fontSize = 25.sp
+        fontSize = 20.sp
     ),
     h4 = TextStyle(
-        fontFamily = FontFamily(Font(R.font.balsamiq_sans_bold)),
-        fontWeight = FontWeight.Bold,
-        fontSize = 21.sp
-    ),
-    h5 = TextStyle(
-        fontFamily = FontFamily(Font(R.font.balsamiq_sans_bold)),
+        fontFamily = FontFamily(Font(R.font.abeezee)),
         fontWeight = FontWeight.Bold,
         fontSize = 18.sp
     ),
-    h6 = TextStyle(
-        fontFamily = FontFamily(Font(R.font.balsamiq_sans_bold)),
+    h5 = TextStyle(
+        fontFamily = FontFamily(Font(R.font.belgrano)),
         fontWeight = FontWeight.Bold,
-        fontSize = 15.sp
+        fontSize = 16.sp
+    ),
+    h6 = TextStyle(
+        fontFamily = FontFamily(Font(R.font.belgrano)),
+        fontWeight = FontWeight.Bold,
+        fontSize = 14.sp
     ),
     body1 = TextStyle(
         fontFamily = FontFamily(Font(R.font.belgrano)),
@@ -49,7 +49,7 @@ val Typography = Typography(
     button = TextStyle(
         fontFamily = FontFamily.Monospace,
         fontWeight = FontWeight.W600,
-        fontSize = 14.sp
+        fontSize = 12.sp
     ),
     caption = TextStyle(
         fontFamily = FontFamily(Font(R.font.akaya_telivigala)),

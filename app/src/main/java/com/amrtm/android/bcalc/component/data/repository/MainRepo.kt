@@ -9,7 +9,7 @@ interface MainContainer {
 }
 
 class MainContainerImpl(private val context: Context):MainContainer {
-    val init = Database.getDatabase(context)
+    val init = BcalcDatabase.getDatabase(context)
     override val balanceRepo: BalanceRepo by lazy {
         BalanceRepo(init.daoBalance())
     }

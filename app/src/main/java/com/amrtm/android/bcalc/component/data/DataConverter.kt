@@ -7,45 +7,46 @@ import com.google.gson.Gson
 import java.math.BigDecimal
 import java.util.*
 
-@ProvidedTypeConverter
+//@ProvidedTypeConverter
 class DataConverter {
+//    @TypeConverter
+//    fun listToString(list: List<*>): String {
+//        return Gson().toJson(list)
+//    }
+//
+//    @TypeConverter
+//    fun stringToList(value: String): List<*> {
+//        return Gson().fromJson(value, List::class.java)
+//    }
+
     @TypeConverter
-    fun ListToString(list: List<*>): String {
-        return Gson().toJson(list)
+    fun bigDecimalToString(number: BigDecimal?): String {
+        return number?.toPlainString() ?: ""
     }
 
     @TypeConverter
-    fun StringToList(value: String): List<*> {
-        return Gson().fromJson(value, List::class.java)
+    fun stringToBigDecimal(value: String?): BigDecimal {
+        if (value.isNullOrBlank()) return BigDecimal.ZERO
+        return value.toBigDecimalOrNull() ?: BigDecimal.ZERO
     }
 
     @TypeConverter
-    fun BigDecimalToString(number: BigDecimal): String {
-        return number.toString()
-    }
-
-    @TypeConverter
-    fun StringToBigDecimal(value: String): BigDecimal {
-        return value.toBigDecimal()
-    }
-
-    @TypeConverter
-    fun DateToLong(date: Date): Long {
+    fun dateToLong(date: Date): Long {
         return date.time
     }
 
     @TypeConverter
-    fun LongToDate(value: Long): Date {
+    fun longToDate(value: Long): Date {
         return Date(value)
     }
 
-    @TypeConverter
-    fun StatusBalanceToString(statusBalance: StatusBalance): String {
-        return Gson().toJson(statusBalance)
-    }
-
-    @TypeConverter
-    fun StringToStatusBalance(value: String): StatusBalance {
-        return Gson().fromJson(value, StatusBalance::class.java)
-    }
+//    @TypeConverter
+//    fun statusBalanceToString(statusBalance: StatusBalance): String {
+//        return Gson().toJson(statusBalance)
+//    }
+//
+//    @TypeConverter
+//    fun stringToStatusBalance(value: String): StatusBalance {
+//        return Gson().fromJson(value, StatusBalance::class.java)
+//    }
 }

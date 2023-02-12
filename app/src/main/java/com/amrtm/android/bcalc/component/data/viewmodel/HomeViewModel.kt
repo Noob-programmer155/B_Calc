@@ -18,25 +18,12 @@ class HomeViewModel(private val balanceRepo: BalanceRepo): ViewModel() {
         private const val TIMEOUT_MILLIS = 5_000L
     }
 
-    var collapseCard = mutableStateOf(-2)
-        private set
-
-    fun setCollapseCard(state: Int) {
-        this.collapseCard.value = state
-    }
-
     val balanceData: StateFlow<Balance> = balanceRepo.get().stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(TIMEOUT_MILLIS),
-        initialValue = Balance(0,"myBalance",BigDecimal.ZERO,BigDecimal.ZERO,BigDecimal.ZERO,
-            Date(),StatusBalance.Balance,0,0)
+        initialValue = Balance(id = null, income = BigDecimal.ZERO, outcome = BigDecimal.ZERO, profit = BigDecimal.ZERO,
+            lastUpdate = Date(), status = StatusBalance.Balance, noteCount = 0, itemsCount = 0)
     )
-
-    fun add(balance: Balance) {
-        viewModelScope.launch {
-            balanceRepo.add(balance)
-        }
-    }
 
     fun update(balance: Balance) {
         viewModelScope.launch {

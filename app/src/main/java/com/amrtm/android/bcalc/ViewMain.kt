@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.amrtm.android.bcalc.component.data.viewmodel.HomeViewModel
 import com.amrtm.android.bcalc.component.data.viewmodel.ItemViewModel
 import com.amrtm.android.bcalc.component.data.viewmodel.NoteViewModel
+import com.amrtm.android.bcalc.component.data.viewmodel.VisualViewModel
 
 object ViewMain {
     val Factory = viewModelFactory{
@@ -19,7 +20,10 @@ object ViewMain {
         initializer {
             ItemViewModel(dataLoader().container.itemRepo,this.createSavedStateHandle())
         }
+        initializer {
+            VisualViewModel(dataLoader().container.itemRepo,this.createSavedStateHandle())
+        }
     }
 }
 
-fun CreationExtras.dataLoader(): MainRepo = (this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as MainRepo)
+fun CreationExtras.dataLoader(): BCalc = (this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as BCalc)

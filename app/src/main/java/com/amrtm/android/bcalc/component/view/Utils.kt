@@ -1,27 +1,40 @@
 package com.amrtm.android.bcalc.component.view
 
-import android.content.Context
-import android.widget.Button
-import android.widget.DatePicker
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActionScope
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.sharp.FilterList
+import androidx.compose.material.icons.rounded.DateRange
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.snapshots.SnapshotStateMap
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.amrtm.android.bcalc.component.data.repository.Item
+import com.amrtm.android.bcalc.component.data.repository.ItemHistory
 import com.amrtm.android.bcalc.component.data.repository.ItemRaw
-import com.amrtm.android.bcalc.component.data.viewmodel.ItemViewModel
-import com.amrtm.android.bcalc.component.data.viewmodel.NoteViewModel
+import com.amrtm.android.bcalc.component.data.repository.StatusBalance
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
@@ -29,202 +42,392 @@ import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
 
-//fun dataManipulation(notes: MutableSet<Note>, itemSize: Int): Balance {
-//    val incomes = notes.fold(BigDecimal.ZERO) {s,o -> s.plus(o.income!!)}
-//    val outcomes = notes.fold(BigDecimal.ZERO) {s,o -> s.plus(o.outcome!!)}
-//    return Balance(
-//        incomes!!,
-//        outcomes,
-//        incomes.minus(outcomes),
-//        notes.maxOf { it.date },
-//        if(incomes.minus(outcomes) > BigDecimal.ZERO) StatusBalance.Profit
-//        else
-//            if (incomes.minus(outcomes) == BigDecimal.ZERO) StatusBalance.Balance
-//            else StatusBalance.Loss,
-//        notes.size,
-//        itemSize
-//    )
-//}
-//
-//fun dataItemManipulation(items: MutableSet<Item>): List<ItemDetail> {
-//    val itemMan = items.map {it ->
-//        ItemDetail(
-//            it.id,
-//            it,
-//            (it.cost_history.fold(BigDecimal.ZERO) { s, o -> s.plus(o)}).divide(BigDecimal(it.cost_history.size)),
-//            it.cost_history.minOf { it },
-//            it.cost_history.maxOf { it }
-//        )
-//    }
-//    return itemMan
-//}
+internal fun Dp.toPx(density: Density) = value * density.density
+fun toDp(value:Int, density: Density) = value.toFloat() / density.density
 
-fun convertToItem(itemRaws: List<ItemRaw>, noteId: Int): List<Item> {
+fun getStatusBalance(income: BigDecimal, outcome: BigDecimal): Pair<StatusBalance,BigDecimal> {
+    val add = income.minus(outcome)
+    return Pair(if (add > BigDecimal.ZERO) StatusBalance.Profit else if (add < BigDecimal.ZERO) StatusBalance.Loss else StatusBalance.Balance,add)
+}
+
+fun getMaxAndMinItemDate(list: List<ItemHistory>): Pair<Long,Long> {
+    var max = 0L
+    var min = 0L
+    list.forEach {
+        val d = it.date.time
+        if (d > max)
+            max = d
+        if (d < min)
+            min = d
+    }
+    return Pair(max,min)
+}
+
+fun convertDateToDayOfYear(date: Long, min: Long): Float {
+    return ((date - min) / (1000L * 60L * 60L * 24L)).toFloat()
+}
+
+fun convertDayOfYearToDate(dateConvert: Float, min: Long): Date {
+    return Date(min + (dateConvert.toLong() * (1000L * 60L * 60L * 24L)))
+}
+
+fun convertToItem(itemRaws: List<ItemHistory>): List<Item> {
     return itemRaws.map {
         Item(
             id = it.id,
-            note = noteId,
+            note = it.note,
             name = it.name.uppercase(),
-            cost = it.cost,
+            buyCost = it.buyCost,
+            sellCost = it.sellCost,
             discount = it.discount,
             sold_out = it.sold_out,
+            purchased = it.purchased,
             stock = it.stock,
-            total_item = it.sold_out + it.stock,
-            total = it.total,
-            date = Date()
-        )
-    }
-}
-
-fun getIdFromList(items: List<Any>): List<Int> {
-    return items.map {
-        when(it) {
-            is Item -> it.id!!
-            is ItemRaw -> it.id!!
-            else -> -1
-        }
-    }
-}
-
-fun convertToItemRaw(items: List<Item>): List<ItemRaw> {
-    return items.map {
-        ItemRaw(
-            id = it.id,
-            name = it.name.uppercase(),
-            cost = it.cost,
-            discount = it.discount,
-            sold_out = it.sold_out,
-            stock = it.stock,
+            total_item = it.total_item,
             total = it.total,
             date = it.date
         )
     }
 }
 
-@Composable
-fun Filter(
-    view: NoteViewModel,
-    drawerState: DrawerState = rememberDrawerState(initialValue = DrawerValue.Closed),
-    thread: CoroutineScope = rememberCoroutineScope(),
-    context: Context
-) {
-    val dateStartChange: MutableState<Date> = remember { mutableStateOf(Date()) }
-    val dateEndChange: MutableState<Date> = remember { mutableStateOf(Date()) }
-    ModalDrawer(
-        drawerContent = {
-            Text(text = "Filter: ", style = MaterialTheme.typography.h6, fontStyle = FontStyle.Italic)
-            Text(text = "from: ", style = MaterialTheme.typography.h6, fontStyle = FontStyle.Italic)
-            Text(text = "change date value", style = MaterialTheme.typography.caption, fontStyle = FontStyle.Italic)
-            DatePicker(context).init(
-                SimpleDateFormat("yyyy", Locale.US).format(dateStartChange).toInt(),
-                SimpleDateFormat("MM", Locale.US).format(dateStartChange).toInt(),
-                SimpleDateFormat("dd", Locale.US).format(dateStartChange).toInt()
-            ) { _, y, m, d ->
-                dateStartChange.value = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse("${y}-${m}-${d}")!!
-            }
-            Text(text = " to ", style = MaterialTheme.typography.h6, fontStyle = FontStyle.Italic)
-            Text(text = "change date value", style = MaterialTheme.typography.caption, fontStyle = FontStyle.Italic)
-            DatePicker(context).init(
-                SimpleDateFormat("yyyy", Locale.US).format(dateEndChange).toInt(),
-                SimpleDateFormat("MM", Locale.US).format(dateEndChange).toInt(),
-                SimpleDateFormat("dd", Locale.US).format(dateEndChange).toInt()
-            ) { _, y, m, d ->
-                dateEndChange.value = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse("${y}-${m}-${d}")!!
-            }
-            Button(modifier = Modifier
-                .padding(30.dp, 0.dp, 0.dp, 0.dp)
-                .padding(10.dp),
-                onClick = {
-                    thread.launch {
-                        drawerState.close()
-                    }
-                    view.onFilter(dateStartChange.value, dateEndChange.value)
-                }
-            ) {
-                Text(text = "Done")
-            }
-        }
-    ) {
-        IconButton(onClick = { thread.launch { drawerState.open() } }) {
-            Icon(imageVector = Icons.Sharp.FilterList, contentDescription = "filter")
-        }
+fun convertToItemHistory(itemRaws: List<ItemRaw>, noteId: Long): List<ItemHistory> {
+    return itemRaws.map {
+        ItemHistory(
+            id = it.id,
+            note = noteId,
+            name = it.name.uppercase(),
+            buyCost = it.buyCost,
+            sellCost = it.sellCost,
+            discount = it.discount,
+            sold_out = it.sold_out,
+            purchased = it.purchased,
+            stock = it.purchased + (it.stock ?: 0) - it.sold_out,
+            total_item = it.sold_out + it.purchased + (it.stock ?: 0),
+            total = it.total,
+            date = Date()
+        )
+    }
+}
+
+fun convertToItemRaw(items: List<ItemHistory>): List<ItemRaw> {
+    return items.map {
+        ItemRaw(
+            id = it.id,
+            name = it.name.uppercase(),
+            buyCost = it.buyCost,
+            sellCost = it.sellCost,
+            discount = it.discount,
+            sold_out = it.sold_out,
+            purchased = it.purchased,
+            total = it.total,
+            date = it.date,
+            stock = it.stock
+        )
     }
 }
 
 @Composable
-fun Filter(
-    view: ItemViewModel,
-    drawerState: DrawerState = rememberDrawerState(initialValue = DrawerValue.Closed),
-    thread: CoroutineScope = rememberCoroutineScope(),
+fun SearchField(
+    modifier: Modifier,
+    onSearchKeyboard: KeyboardActionScope.() -> Unit,
+    stateSearchItem: MutableState<String>,
+    elevation: Dp = 10.dp,
+    innerPadding: PaddingValues = PaddingValues(12.dp, 5.dp),
 ) {
-    val costStartChange: MutableState<BigDecimal> = remember { mutableStateOf(BigDecimal.ZERO) }
-    val costEndChange: MutableState<BigDecimal> = remember { mutableStateOf(BigDecimal.ZERO) }
-    ModalDrawer(
-        drawerContent = {
-            Text(text = "Range Cost: ", style = MaterialTheme.typography.h6, fontStyle = FontStyle.Italic)
-            OutlinedTextField(
-                value = DecimalFormat("#,###.00").format(costStartChange.value),
-                onValueChange = { costStartChange.value = DecimalFormat("#,###.00").parse(it) as BigDecimal },
-                label = {Text(text = "start cost value", style = MaterialTheme.typography.caption, fontStyle = FontStyle.Italic)},
-                leadingIcon = { Text(text = "Rp. ",style = MaterialTheme.typography.h6) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done)
-            )
-            OutlinedTextField(
-                value = DecimalFormat("#,###.00").format(costEndChange.value),
-                onValueChange = { costEndChange.value = DecimalFormat("#,###.00").parse(it) as BigDecimal },
-                leadingIcon = { Text(text = "Rp. ",style = MaterialTheme.typography.h6) },
-                label = {Text(text = "end cost value", style = MaterialTheme.typography.caption, fontStyle = FontStyle.Italic)},
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done)
-            )
-            Button(
+    BasicTextField(
+        modifier = modifier,
+        value = stateSearchItem.value,
+        onValueChange =  {stateSearchItem.value =  it},
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = onSearchKeyboard),
+        singleLine = true,
+        maxLines = 1,
+        textStyle = TextStyle(color = MaterialTheme.colors.onPrimary),
+        cursorBrush = SolidColor(Color.White),
+        decorationBox={
+            Surface(
                 modifier = Modifier
-                    .padding(30.dp, 0.dp, 0.dp, 0.dp)
-                    .padding(10.dp),
-                onClick = {
-                    thread.launch {
-                        drawerState.close()
-                    }
-                    view.onFilter(costStartChange.value,costEndChange.value)
-                }
+                    .padding(4.dp)
+                    .fillMaxWidth(),
+                elevation = elevation,
+                shape = RoundedCornerShape(50),
+                color = MaterialTheme.colors.primary
             ) {
-                Text(text = "Done")
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(innerPadding)
+                ) {
+                    if(stateSearchItem.value.isBlank()) {
+                        Text(
+                            text = "Search",
+                            style = TextStyle(color = MaterialTheme.colors.onPrimary.copy(alpha = .6f))
+                        )
+                    }
+                    it()
+                }
             }
         }
-    ) {
-        IconButton(onClick = { thread.launch { drawerState.open() } }) {
-            Icon(imageVector = Icons.Sharp.FilterList, contentDescription = "filter")
-        }
+    )
+}
+
+@Composable
+fun SearchButton(
+    onSearch: () -> Unit,
+    iconColor: Color
+) {
+    IconButton(onClick = onSearch) {
+        Icon(
+            imageVector = Icons.Rounded.Search,
+            contentDescription = "search item",
+            tint = iconColor
+        )
     }
 }
+
+@Composable
+fun FilterDate(
+    onFilter: () -> Unit,
+    scaffoldState: ScaffoldState,
+    thread: CoroutineScope,
+    focus: FocusManager,
+    dateStartChange: MutableState<Date>,
+    dateEndChange: MutableState<Date>,
+) {
+//    ModalDrawer(
+//        drawerState = drawerState,
+//        gesturesEnabled = false,
+//        drawerContent = {
+    Text(text = "Filter: ", style = MaterialTheme.typography.h6, fontStyle = FontStyle.Italic)
+    Text(text = "from: ", style = MaterialTheme.typography.h6, fontStyle = FontStyle.Italic)
+        val startAttr:MutableState<TextFieldValue> = remember { mutableStateOf(TextFieldValue()) }
+    OutlinedTextField(
+        modifier = Modifier.padding(10.dp),
+        value = startAttr.value,
+        onValueChange = {
+            if (it.text.last().isDigit()) {
+                if (it.text.length <= 10) {
+                    if (it.text.matches(Regex("[1-9][0-9]{3}/(0[0-9]|1[0-2])/([0-2][0-9]|3[01])"))) {
+                        dateStartChange.value = SimpleDateFormat("yyyy/MM/dd", Locale.US).parse(it.text)!!
+                    }
+                    if (it.text.length == 5) {
+                        if (it.text[4] != '/')
+                            startAttr.value = TextFieldValue(it.text.substring(0,4)+"/"+it.text[4], selection = TextRange(it.text.length+1))
+                        else
+                            startAttr.value = TextFieldValue(it.text, selection = TextRange(it.text.length))
+                    } else if (it.text.length == 8) {
+                        if (it.text[7] != '/')
+                            startAttr.value = TextFieldValue(it.text.substring(0,7)+"/"+it.text[7], selection = TextRange(it.text.length+1))
+                        else
+                            startAttr.value = TextFieldValue(it.text, selection = TextRange(it.text.length))
+                    } else
+                        startAttr.value = TextFieldValue(it.text, selection = TextRange(it.text.length))
+                }
+            } else
+                it.text.removeRange(it.text.lastIndex,it.text.lastIndex+1)},
+        leadingIcon = { Icon(imageVector = Icons.Rounded.DateRange, contentDescription = null) },
+        label = {Text(text = "change date value (yyyy/MM/dd)", style = MaterialTheme.typography.caption, fontStyle = FontStyle.Italic)},
+        placeholder = { Text(text = "exp: 2000/02/04", style = MaterialTheme.typography.h6) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+        keyboardActions = KeyboardActions(onNext = {
+            focus.moveFocus(FocusDirection.Down)
+        })
+    )
+    Text(text = "change date value", style = MaterialTheme.typography.caption, fontStyle = FontStyle.Italic)
+    Text(text = " to ", style = MaterialTheme.typography.h6, fontStyle = FontStyle.Italic)
+    val endAttr:MutableState<TextFieldValue> = remember { mutableStateOf(TextFieldValue()) }
+    OutlinedTextField(
+        modifier = Modifier.padding(10.dp),
+        value = endAttr.value,
+        onValueChange = {
+            if (it.text.last().isDigit()) {
+                if (it.text.length <= 10) {
+                    if (it.text.matches(Regex("[1-9][0-9]{3}/(0[0-9]|1[0-2])/([0-2][0-9]|3[01])"))) {
+                        dateEndChange.value =
+                            SimpleDateFormat("yyyy/MM/dd", Locale.US).parse(it.text)!!
+                    }
+                    if (it.text.length == 5) {
+                        if (it.text[4] != '/')
+                            endAttr.value = TextFieldValue(
+                                it.text.substring(0, 4) + "/" + it.text[4],
+                                selection = TextRange(it.text.length + 1)
+                            )
+                        else
+                            endAttr.value =
+                                TextFieldValue(it.text, selection = TextRange(it.text.length))
+                    } else if (it.text.length == 8) {
+                        if (it.text[7] != '/')
+                            endAttr.value = TextFieldValue(
+                                it.text.substring(0, 7) + "/" + it.text[7],
+                                selection = TextRange(it.text.length + 1)
+                            )
+                        else
+                            endAttr.value =
+                                TextFieldValue(it.text, selection = TextRange(it.text.length))
+                    } else
+                        endAttr.value =
+                            TextFieldValue(it.text, selection = TextRange(it.text.length))
+                }
+            } else
+                it.text.removeRange(it.text.lastIndex,it.text.lastIndex+1)},
+        leadingIcon = { Icon(imageVector = Icons.Rounded.DateRange, contentDescription = null) },
+        label = {Text(text = "change date value (yyyy/MM/dd)", style = MaterialTheme.typography.caption, fontStyle = FontStyle.Italic)},
+        placeholder = { Text(text = "exp: 2000/02/04", style = MaterialTheme.typography.h6) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+        keyboardActions = KeyboardActions(onNext = {
+            focus.moveFocus(FocusDirection.Up)
+        })
+    )
+    Column(horizontalAlignment = Alignment.End) {
+        Spacer(modifier = Modifier
+            .fillMaxHeight()
+            .weight(1f))
+        Button(
+            modifier = Modifier
+                .padding(0.dp, 0.dp, 0.dp, 30.dp)
+                .padding(10.dp),
+            onClick = {
+                thread.launch {
+                    scaffoldState.drawerState.close()
+                }
+                focus.clearFocus()
+                onFilter()
+            }
+        ) {
+            Text(text = "Done")
+        }
+    }
+//        }
+//    ) {}
+}
+
+@Composable
+fun FilterBigDecimal(
+    onFilter: () -> Unit,
+    scaffoldState: ScaffoldState,
+    thread: CoroutineScope,
+    focus: FocusManager,
+    costStartChange: MutableState<BigDecimal>,
+    costEndChange: MutableState<BigDecimal>
+) {
+//    ModalDrawer(
+//        drawerState = drawerState,
+//        gesturesEnabled = false,
+//        drawerContent = {
+    Text(text = "Range Cost: ", style = MaterialTheme.typography.h6, fontStyle = FontStyle.Italic)
+    OutlinedTextField(
+        modifier = Modifier.padding(10.dp),
+        value = TextFieldValue(DecimalFormat("#,###").format(costStartChange.value), selection = TextRange(DecimalFormat("#,###").format(costStartChange.value).length)),
+        onValueChange = {
+            if (it.text.last().isDigit()) {
+                costStartChange.value = if (it.text.isNotBlank()) it.text.replace(Regex("[,]*"), "")
+                    .toBigDecimal() else BigDecimal.ZERO
+            }},
+        label = {Text(text = "start cost value", style = MaterialTheme.typography.caption, fontStyle = FontStyle.Italic)},
+        leadingIcon = { Text(text = "Rp. ",style = MaterialTheme.typography.h6) },
+        trailingIcon = { Text(text = ".00",style = MaterialTheme.typography.h6) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+        keyboardActions = KeyboardActions(onNext = {
+            focus.moveFocus(FocusDirection.Down)
+        })
+    )
+    OutlinedTextField(
+        modifier = Modifier.padding(10.dp),
+        value = TextFieldValue(DecimalFormat("#,###").format(costEndChange.value), selection = TextRange(DecimalFormat("#,###").format(costEndChange.value).length)),
+        onValueChange = {
+            if (it.text.last().isDigit()) {
+                costEndChange.value = if (it.text.isNotBlank()) it.text.replace(Regex("[,]*"),"").toBigDecimal() else BigDecimal.ZERO
+            }},
+        leadingIcon = { Text(text = "Rp. ",style = MaterialTheme.typography.h6) },
+        trailingIcon = { Text(text = ".00",style = MaterialTheme.typography.h6) },
+        label = {Text(text = "end cost value", style = MaterialTheme.typography.caption, fontStyle = FontStyle.Italic)},
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+        keyboardActions = KeyboardActions(onNext = {
+            focus.moveFocus(FocusDirection.Up)
+        })
+    )
+    Column(horizontalAlignment = Alignment.End) {
+        Spacer(modifier = Modifier
+            .fillMaxHeight()
+            .weight(1f))
+        Button(
+            modifier = Modifier
+                .padding(0.dp, 0.dp, 0.dp, 30.dp)
+                .padding(10.dp),
+            onClick = {
+                thread.launch {
+                    scaffoldState.drawerState.close()
+                }
+                focus.clearFocus()
+                onFilter()
+            }
+        ) {
+            Text(text = "Done")
+        }
+    }
+//        }
+//    ){}
+}
+
+data class MessageItem(
+    val label:String = "",
+    val description: String = "",
+    val error: Boolean = false
+)
 
 @Composable
 fun MessageDialog(
     title: String,
-    body: @Composable () -> Unit,
     doneText: String = "Done",
     onDone: () -> Unit,
+    error: Boolean?,
     closeText: String = "Close",
     withCloseButton: Boolean = true,
     open: MutableState<Boolean>,
-    onDismiss: () -> Unit = {}
+    onDismiss: () -> Unit = {},
+    body: String
 ) {
     if (open.value) {
         AlertDialog(
+            modifier = Modifier.padding(40.dp,0.dp).padding(),
+            backgroundColor = if (error != null) {if (error) Color.Red else Color.Green} else MaterialTheme.colors.background,
+            contentColor = if (error != null) {Color.White} else MaterialTheme.colors.onBackground,
             onDismissRequest = onDismiss,
             title = {
                 Text(text = title, style = MaterialTheme.typography.h3)
             },
-            text = body,
+            text = {
+                Text(text = body, style = MaterialTheme.typography.h3)
+            },
             buttons = {
                 Row(
-                    modifier = Modifier.padding(all = 8.dp),
+                    modifier = Modifier
+                        .padding(all = 8.dp)
+                        .fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    TextButton(modifier = Modifier.padding(15.dp,0.dp).padding(10.dp), onClick = onDone) {
+                    TextButton(
+                        modifier = Modifier
+                            .padding(10.dp),
+                        onClick = onDone,
+                        colors = ButtonDefaults.buttonColors(
+                            backgroundColor = Color.Transparent,
+                            contentColor = if (error != null) {Color.White} else MaterialTheme.colors.onBackground
+                        )
+                    ) {
                         Text(text = doneText)
                     }
                     if (withCloseButton) {
-                        TextButton(modifier = Modifier.padding(10.dp), onClick = { open.value = !open.value }) {
+                        TextButton(
+                            modifier = Modifier
+                                .padding(15.dp, 0.dp, 0.dp, 0.dp)
+                                .padding(10.dp),
+                            onClick = { open.value = !open.value },
+                            colors = ButtonDefaults.buttonColors(
+                                backgroundColor = Color.Transparent,
+                                contentColor = if (error != null) {Color.White} else MaterialTheme.colors.onBackground
+                            )
+                        ) {
                             Text(text = closeText)
                         }
                     }
@@ -301,7 +504,7 @@ fun MessageDialog(
 //        Icon(imageVector = Icons.Outlined.FirstPage, contentDescription = "previous")
 //    }
 //}
-//
+
 fun colorGenerate(): SnapshotStateMap<Char,Color> {
     val colors: SnapshotStateMap<Char, Color> = mutableStateMapOf()
     val red = setOf(0xFFFF0032,0xFFFF8B13,0xFFFF7B54,0xFFFFB26B,0xFFFFD56F,0xFFFFD495,0xFFFF6E31,0xFFF1F7B5,0xFFFEC868)
@@ -317,3 +520,184 @@ fun colorGenerate(): SnapshotStateMap<Char,Color> {
     }
     return colors
 }
+
+//@Composable
+//fun <T:Any> rememberSaveableListOf(vararg data: T): SnapshotStateList<T> {
+//    return rememberSaveable(
+//        saver = listSaver(
+//            save = {
+//                if (it.isNotEmpty())
+//                    if (!canBeSaved(it.first()))
+//                        throw IllegalStateException("${it.first()::class} cannot be saved. By default only types which can be stored in the Bundle class can be saved.")
+//                it.toList()
+//            },
+//            restore = { it.toMutableStateList() }
+//        )
+//    ) {
+//        data.toList().toMutableStateList()
+//    }
+//}
+
+@Suppress("UNCHECKED_CAST")
+class TextFieldCustom<T>(
+    val value: MutableState<T>,
+    val modifier: Modifier,
+    val onNext: KeyboardActionScope.() -> Unit,
+    val singleLine: Boolean = true,
+    val label: String,
+    val maxLines: Int = 1,
+    val rangeNumber: Long = -1,
+    val textStyle: TextStyle = TextStyle(),
+    val placeholder: String = "",
+    val currencySymbol: String = "Rp",
+    val currencySymbolIcon: ImageVector? = null,
+    val endSymbol: String? = null,
+    val color: Color,
+    val innerPadding: PaddingValues = PaddingValues(12.dp, 5.dp)
+) {
+    private val valueIns: (it: T) -> TextFieldValue
+    private val valueChange: (it: TextFieldValue) -> Unit
+    init {
+        valueIns = when (value.value) {
+            is String -> {
+                { TextFieldValue(it as String, selection = TextRange((it as String).length)) }
+            }
+            is BigDecimal -> {
+                { TextFieldValue(DecimalFormat("#,###").format(it), selection = TextRange(DecimalFormat("#,###").format(it).length)) }
+            }
+            else -> {
+                { TextFieldValue(it.toString(), selection = TextRange(it.toString().length)) }
+            }
+        }
+        valueChange = when(value.value) {
+            is String -> {{ value.value = it.text as T}}
+            is BigDecimal -> {{
+                if (it.text.isNotBlank()) {
+                    if (it.text.last().isDigit()) {
+                        it.text.replace(Regex(",*"),"").toBigDecimal().let {
+                            if (rangeNumber >= 0) {
+                                if (it.compareTo(BigDecimal.valueOf(rangeNumber)) < 1)
+                                    value.value = it as T
+                            }
+                            else
+                                value.value = it as T
+                        }
+                    }
+                } else
+                    value.value = BigDecimal.ZERO as T
+            }}
+            else -> {{
+                if (it.text.isNotBlank()) {
+                    if (it.text.last().isDigit()) {
+                        value.value = if (it.text.isNotBlank()) it.text.toInt() as T else 0 as T
+                    }
+                } else
+                    value.value = 0 as T
+            }}
+        }
+    }
+
+    @Composable
+    fun Build() {
+        BasicTextField(
+            modifier = modifier,
+            value = valueIns(value.value),
+            onValueChange = valueChange,
+            keyboardOptions = KeyboardOptions(
+                imeAction = ImeAction.Next,
+                keyboardType = when(value.value) {
+                    is String -> KeyboardType.Text
+                    is BigDecimal -> KeyboardType.Number
+                    else -> KeyboardType.Number
+                }
+            ),
+            keyboardActions = KeyboardActions(onNext = onNext),
+            singleLine = singleLine,
+            cursorBrush = SolidColor(color),
+            maxLines = maxLines,
+            textStyle = textStyle.copy(color = color),
+            decorationBox={
+                Surface(
+                    modifier = Modifier
+                        .padding(4.dp)
+                        .fillMaxWidth(),
+                    shape = RoundedCornerShape(if (maxLines == 1) 50 else 10),
+                    color = MaterialTheme.colors.onBackground.copy(alpha = .2f)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(innerPadding)
+                    ) {
+                        if (currencySymbolIcon == null)
+                            Text(
+                                modifier = Modifier.padding(),
+                                text = label,
+                                color = color,
+                                style = MaterialTheme.typography.body1
+                            )
+                        Row (verticalAlignment = Alignment.CenterVertically) {
+                            if (currencySymbolIcon != null)
+                                Icon(
+                                    imageVector = currencySymbolIcon,
+                                    contentDescription = null,
+                                    tint = color
+                                )
+                            if (value.value is BigDecimal)
+                                Text(text = "${currencySymbol}. ", style = textStyle.copy(color = color))
+                            if (value.value is String)
+                                if((value.value as String).isBlank()) {
+                                    Text(
+                                        text = placeholder,
+                                        style = TextStyle(color = color.copy(alpha = .6f))
+                                    )
+                                }
+                            Box(modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)) {
+                                it()
+                            }
+                            if (value.value is BigDecimal)
+                                Text(text = " .00", style = textStyle.copy(color = color))
+                            else
+                                Text(text = endSymbol ?: "", style = textStyle.copy(color = color))
+                        }
+                    }
+                }
+            }
+        )
+    }
+}
+
+fun clearItem(
+    name: MutableState<String>,
+    buyCost: MutableState<BigDecimal>,
+    sellCost: MutableState<BigDecimal>,
+    discount: MutableState<Int>,
+    sold_out: MutableState<Int>,
+    buyed: MutableState<Int>,
+) {
+    name.value = ""
+    buyCost.value = BigDecimal.ZERO
+    sellCost.value = BigDecimal.ZERO
+    discount.value = 0
+    sold_out.value = 0
+    buyed.value = 0
+}
+
+fun clearNote(
+    title: MutableState<String>,
+    description: MutableState<String>,
+    income: MutableState<BigDecimal>,
+    outcome: MutableState<BigDecimal>,
+    additionalOutcome: MutableState<BigDecimal>,
+    itemsList: SnapshotStateList<ItemRaw>
+) {
+    title.value = ""
+    description.value = ""
+    income.value = BigDecimal.ZERO
+    outcome.value = BigDecimal.ZERO
+    additionalOutcome.value = BigDecimal.ZERO
+    itemsList.removeRange(0,itemsList.size)
+}
+
