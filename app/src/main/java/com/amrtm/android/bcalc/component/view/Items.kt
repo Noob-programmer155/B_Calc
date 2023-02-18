@@ -16,14 +16,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemsIndexed
-import com.amrtm.android.bcalc.ViewMain
 import com.amrtm.android.bcalc.component.data.*
 import com.amrtm.android.bcalc.component.data.repository.Item
 import com.amrtm.android.bcalc.component.data.viewmodel.ItemViewModel
@@ -33,7 +31,7 @@ import java.util.*
 
 @Composable
 fun ItemsList(
-    storage: ItemViewModel = viewModel(factory = ViewMain.Factory),
+    storage: ItemViewModel,
     windowSize: WindowWidthSizeClass,
     navController: NavHostController,
     modifier: Modifier
@@ -69,7 +67,8 @@ fun ItemsList(
                 .padding(0.dp, 0.dp, 0.dp, 80.dp),
             items = items,
             navController = navController,
-            width = windowSize)
+            width = windowSize
+        )
     }
 }
 
@@ -90,7 +89,9 @@ fun ItemsView(
         itemsIndexed(items){ _,it ->
             Card(
                 onClick = {
-                    navController.navigate(route = "${Navigation.VisualizeItem().link}?name=${it?.name}")
+                    navController.navigate(route = "${Navigation.VisualizeItem(
+                        if (width == WindowWidthSizeClass.Compact) 10 else if (width == WindowWidthSizeClass.Medium) 20 else 30
+                    ).link}?name=${it?.name}")
                 },
                 enabled = true,
                 modifier = Modifier

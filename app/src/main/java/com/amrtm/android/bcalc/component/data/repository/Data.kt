@@ -22,6 +22,15 @@ data class IdRef(
     val id: Long?
 )
 
+data class NameRef(
+    val name: String
+)
+
+data class IdAndCount(
+    val id: Long?,
+    val count: Int
+)
+
 @Entity
 data class Balance(
     @PrimaryKey(autoGenerate = true) val id: Long?,

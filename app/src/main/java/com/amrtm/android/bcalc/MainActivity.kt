@@ -1,6 +1,6 @@
 package com.amrtm.android.bcalc
 
-import android.content.Context
+import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,13 +20,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.amrtm.android.bcalc.component.data.Navigation
 import com.amrtm.android.bcalc.component.data.viewmodel.HomeViewModel
+import com.amrtm.android.bcalc.component.data.viewmodel.ItemViewModel
+import com.amrtm.android.bcalc.component.data.viewmodel.NoteViewModel
 import com.amrtm.android.bcalc.component.view.*
 import com.amrtm.android.bcalc.ui.theme.BCalcTheme
 import kotlinx.coroutines.CoroutineScope
@@ -44,24 +45,26 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.surface
                 ) {
-                    Main(windowSize = windowSize, context = this, visual = visual)
+                    Main(windowSize = windowSize, visual = visual)
                 }
             }
         }
     }
 }
 
+@SuppressLint("SuspiciousIndentation")
 @Composable
 fun Main(
     windowSize: WindowSizeClass,
     navController: NavHostController = rememberNavController(),
     globalPadding: Dp = 0.dp,
     height: Dp = 100.dp,
-    visual: Visualization,
-    context: Context
+    visual: Visualization
 ) {
     val focus = LocalFocusManager.current
-    val viewModel: HomeViewModel = viewModel(factory = ViewMain.Factory)
+    val homeModel: HomeViewModel = viewModel(factory = ViewMain.Factory)
+    val itemModel: ItemViewModel = viewModel(factory = ViewMain.Factory)
+    val noteModel: NoteViewModel = viewModel(factory = ViewMain.Factory)
     val drawerState: ScaffoldState = rememberScaffoldState()
     val thread: CoroutineScope = rememberCoroutineScope()
     val isNote: MutableState<Int> = remember { mutableStateOf(0) }
@@ -73,7 +76,9 @@ fun Main(
         scaffoldState = drawerState,
         thread = thread,
         focus = focus,
-        searchBtnTrigger = searchState
+        searchBtnTrigger = searchState,
+        noteView = noteModel,
+        itemView = itemModel
     ) {
         NavHost(
             navController = navController,
@@ -93,6 +98,7 @@ fun Main(
                 ) {
                     when (type) {
                         "note" -> {
+                            noteModel.clearQuery()
                             if (isNote.value != NOTE)
                                 isNote.value = NOTE
                             Column {
@@ -101,11 +107,13 @@ fun Main(
                                     height = height,
                                     modifier = Modifier
                                         .width(LocalConfiguration.current.screenWidthDp.dp)
-                                        .fillMaxHeight()
+                                        .fillMaxHeight(),
+                                    storage = noteModel
                                 )
                             }
                         }
                         "item" -> {
+                            itemModel.clearQuery()
                             if (isNote.value != 2)
                                 isNote.value = 2
                             Column {
@@ -114,7 +122,8 @@ fun Main(
                                     navController = navController,
                                     modifier = Modifier
                                         .width(LocalConfiguration.current.screenWidthDp.dp)
-                                        .fillMaxHeight()
+                                        .fillMaxHeight(),
+                                    storage = itemModel
                                 )
                             }
                         }
@@ -126,7 +135,7 @@ fun Main(
                             Column {
                                 BalanceCard(
                                     screenWidth = windowSize.widthSizeClass,
-                                    viewModel = viewModel,
+                                    viewModel = homeModel,
                                     modifier = Modifier
                                         .width(LocalConfiguration.current.screenWidthDp.dp)
 //                                        .fillMaxHeight()
@@ -154,12 +163,15 @@ fun Main(
                             .verticalScroll(rememberScrollState())
                             .weight(1f, false),
                         navController = navController,
-                        homeView = viewModel,
-                        focus = focus
+                        homeView = homeModel,
+                        focus = focus,
+                        width = windowSize.widthSizeClass,
+                        storage = noteModel,
+                        itemsContainer = itemModel
                     )
                 }
             }
-            composable(route = "${Navigation.VisualizeItem().link}?name={name}", arguments = listOf(
+            composable(route = "${Navigation.VisualizeItem(null).link}?name={name}", arguments = listOf(
                 navArgument("page") {
                     defaultValue = if (windowSize.widthSizeClass == WindowWidthSizeClass.Compact) 10 else if (windowSize.widthSizeClass == WindowWidthSizeClass.Medium) 20 else 30
                 },
@@ -171,7 +183,11 @@ fun Main(
                     isNote.value = 0
                 if (searchState.value)
                     searchState.value = false
-//                    visual.CreateVisualization(name = it.arguments?.getString("name"), navController = navController)
+                    visual.CreateVisualization(
+                        name = it.arguments?.getString("name"),
+                        navController = navController,
+                        width = windowSize.widthSizeClass
+                    )
             }
         }
     }

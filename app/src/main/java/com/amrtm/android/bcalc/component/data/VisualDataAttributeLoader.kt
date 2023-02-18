@@ -5,24 +5,28 @@ import com.amrtm.android.bcalc.component.view.Visualization
 import com.madrapps.plot.line.DataPoint
 
 object VisualDataAttributeLoader {
-    fun bindDataPointsToColor(
-        datapoints: List<List<DataPoint>>,
-        titles: List<String>,
-        xLabel: List<String>,
-        yLabel: List<String>,
-        vararg type: Visualization.TypeStatus) : Map<Visualization.TypeStatus,Visualization.DataItem> {
-        if (datapoints.size != type.size && titles.size != type.size && xLabel.size != type.size && yLabel.size != type.size)
-            throw Exception("size must same in both list")
-        val map = mutableMapOf<Visualization.TypeStatus,Visualization.DataItem>()
-        datapoints.forEachIndexed {i,it ->
-            val color = defaultColor().get(i % 4)
-            map.put(type[i],Visualization.DataItem(data = it, color = color,titles[i], xTitle = xLabel[i], yTitle = yLabel[i]))
-        }
-        return map
+    fun bindDataPointToColor(
+        dataPoint: List<DataPoint>,
+        title: String,
+        xLabel: String,
+        yLabel: String,
+        type: Visualization.Companion.TypeStatus,
+        labels: List<Visualization.Companion.DataLabel>,
+        legends: List<Visualization.Companion.Legend>
+    ): Pair<Visualization.Companion.TypeStatus,Visualization.Companion.DataItem> {
+        return type to Visualization.Companion.DataItem(
+            data = dataPoint,
+            color = defaultColor()[type.index],
+            xTitle = xLabel,
+            yTitle = yLabel,
+            title = title,
+            dataPopup = labels,
+            dataLegends = legends
+        )
     }
 
     fun defaultColor(): List<ChartColor> {
-        return listOf<ChartColor>(
+        return listOf(
             ChartColor(
                 mainColor = Color(0xFF5B8FB9),
                 areaColor = Color(0xFF5B8FB9).copy(alpha = 0.2f),

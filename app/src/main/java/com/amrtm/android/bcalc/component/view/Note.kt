@@ -8,11 +8,14 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -30,7 +33,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
@@ -38,7 +40,6 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemsIndexed
 import com.amrtm.android.bcalc.ViewMain
 import com.amrtm.android.bcalc.component.data.*
-import com.amrtm.android.bcalc.component.data.repository.ItemHistory
 import com.amrtm.android.bcalc.component.data.repository.ItemRaw
 import com.amrtm.android.bcalc.component.data.repository.Note
 import com.amrtm.android.bcalc.component.data.repository.StatusBalance
@@ -56,7 +57,7 @@ import java.util.*
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun CardAddLayout(
-    storage: NoteViewModel = viewModel(factory = ViewMain.Factory),
+    storage: NoteViewModel,
     navController: NavHostController,
     height: Dp,
     modifier: Modifier
@@ -122,6 +123,7 @@ fun NoteItem(
         contentPadding = PaddingValues(0.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+//        stickyHeader {  }
         itemsIndexed(notes) {_,it ->
             Card(
                 modifier = Modifier
@@ -129,7 +131,7 @@ fun NoteItem(
                     .fillMaxWidth()
                     .animateContentSize(
                         animationSpec = tween(
-                            durationMillis = 1000,
+                            durationMillis = 500,
                             easing = LinearOutSlowInEasing
                         )
                     )
@@ -217,7 +219,9 @@ fun NoteItem(
             }
             is LoadState.Error -> item {
                 Column (
-                    modifier = Modifier.fillParentMaxSize().padding(15.dp),
+                    modifier = Modifier
+                        .fillParentMaxSize()
+                        .padding(15.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
@@ -253,7 +257,9 @@ fun NoteItem(
             is LoadState.NotLoading -> item {
                 if (notes.itemCount <= 0)
                     Box(
-                        modifier = Modifier.fillMaxSize().padding(15.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(15.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -274,7 +280,9 @@ fun NoteItem(
             }
             is LoadState.Error -> item {
                 Column (
-                    modifier = Modifier.fillParentMaxSize().padding(15.dp),
+                    modifier = Modifier
+                        .fillParentMaxSize()
+                        .padding(15.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
@@ -314,10 +322,12 @@ fun NoteItem(
 
 @Composable
 fun AddNote(
-    storage: NoteViewModel = viewModel(factory = ViewMain.Factory),
+    storage: NoteViewModel,
     homeView: HomeViewModel,
+    itemsContainer: ItemViewModel,
     navController: NavHostController,
     modifier: Modifier,
+    width: WindowWidthSizeClass,
     title: MutableState<String> = rememberSaveable { mutableStateOf("") },
     description: MutableState<String> = rememberSaveable { mutableStateOf("") },
     income: MutableState<BigDecimal> = rememberSaveable { mutableStateOf(BigDecimal.ZERO) },
@@ -327,17 +337,15 @@ fun AddNote(
     thread: CoroutineScope = rememberCoroutineScope(),
     focus: FocusManager
 ) {
-    val itemsContainer: ItemViewModel = viewModel(factory = ViewMain.Factory)
-    val itemsList: SnapshotStateList<ItemRaw> = itemsContainer.listItemRaw
+    var itemsList: SnapshotStateList<ItemRaw> = itemsContainer.listItemRaw
+    var oldItemsList: List<ItemRaw> = listOf()
     val delete: MutableState<Boolean> = rememberSaveable { mutableStateOf(false) }
     val openMessage: MutableState<Boolean> = rememberSaveable { mutableStateOf(false) }
     val dataMessage: MutableState<MessageItem> = remember { mutableStateOf(MessageItem()) }
     val stateId = storage.noteId?.toLongOrNull()
-    val countItems by itemsContainer.getCountItems().collectAsState(initial = 0)
     val balance by homeView.balanceData.collectAsState()
     val noteRaw by storage.noteData.collectAsState()
     var note:Note? = null
-    var itemsIdRef: List<ItemHistory>? = null
     if (stateId != null) {
         note = noteRaw.note
         title.value = note.name
@@ -345,14 +353,16 @@ fun AddNote(
         income.value = note.income
         outcome.value = note.outcome
         additionalOutcome.value = note.additionalOutcome
-        itemsList.addAll(convertToItemRaw(noteRaw.items))
-        itemsIdRef = noteRaw.items
+        itemsList = convertToItemRaw(noteRaw.items).toMutableStateList()
+        oldItemsList = convertToItemRaw(noteRaw.items)
     }
+    // update problem on stock
     Column(
         modifier = modifier
     ) {
         GlobalContainer(title = title, description = description, outcome = additionalOutcome, focus = focus)
-        MainProcess(itemsList = itemsList, income = income, outcome = outcome, focus = focus, itemView = itemsContainer, onError = openMessage, msg = dataMessage)
+        MainProcess(itemsList = itemsList, income = income, outcome = outcome, focus = focus,
+            itemView = itemsContainer, onError = openMessage, msg = dataMessage, itemsListOld = oldItemsList)
         SaveOrUpdateOrDelete(
             id = stateId,
             onDelete = {
@@ -372,12 +382,12 @@ fun AddNote(
                     var newItemsCount = 0
                     thread.launch {
                         val newId = storage.add(notes)
-                        val newItemsData = itemsList.map {
+                        val newItemsData = itemsList.filter { !it.delete }.map {
                             it.copy(stock = (it.stock ?: let {
                             newItemsCount += 1
                             0
                         })) }
-                        val newItems = convertToItemHistory(newItemsData,newId)
+                        val newItems = convertToItemHistory(newItemsData,newId,null)
                         itemsContainer.addAll(newItems)
                         homeView.update(balance.copy(
                             income = newIncome,
@@ -388,8 +398,6 @@ fun AddNote(
                             noteCount = balance.noteCount!! + 1,
                             itemsCount = balance.itemsCount!! + newItemsCount
                         ))
-                        storage.onTrigger()
-                        itemsContainer.onTrigger()
                         clearNote(title,description,income,outcome,additionalOutcome,itemsList)
                         focus.clearFocus()
                         dataMessage.value = dataMessage.value.copy(label = "Saved", description = "Saved Note and Item`s success", error = false)
@@ -411,14 +419,16 @@ fun AddNote(
                 var newItemsCount = 0
                 thread.launch {
                     storage.update(notes!!)
-                    val newItems = convertToItemHistory(itemsList.filter { it.id == null}.map {
+                    val newItems = convertToItemHistory(itemsList.filter { it.id == null && !it.delete }.map {
                         it.copy(stock = (it.stock ?: let {
                         newItemsCount += 1
                         0
-                    })) },notes.id!!)
-                    itemsContainer.addAll(newItems)
-                    val deleteItems = convertToItemHistory(itemsList.filter { it.delete },0L)
-                    itemsContainer.deleteAll(deleteItems)
+                    })) },notes.id!!,oldItemsList)
+                    if (newItems.isNotEmpty())
+                        itemsContainer.addAll(newItems)
+                    val deleteItems = convertToItemHistory(itemsList.filter { it.delete && it.id != null },notes.id,oldItemsList)
+                    if (deleteItems.isNotEmpty())
+                        itemsContainer.deleteAll(deleteItems)
                     homeView.update(balance.copy(
                         income = newIncome,
                         outcome = newOutcome,
@@ -427,8 +437,6 @@ fun AddNote(
                         status = status.first,
                         itemsCount = balance.itemsCount!! + newItemsCount
                     ))
-                    storage.onTrigger()
-                    itemsContainer.onTrigger()
                     focus.clearFocus()
                     dataMessage.value = dataMessage.value.copy(label = "Updated", description = "Update Note and Item`s success", error = false)
                     openMessage.value = true
@@ -445,7 +453,8 @@ fun AddNote(
                 else
                     clearNote(title,description,income,outcome,additionalOutcome,itemsList)
             },
-            activeState = activeState
+            activeState = activeState,
+            width = width
         )
         MessageDialog(
             open = delete,
@@ -453,13 +462,18 @@ fun AddNote(
             body = "Are you sure to delete this Notes ??,\n All items associate with this note will be deleted.",
             doneText = "Delete",
             closeText = "Cancel",
+            button1Color = Color(0xFFFF0032),
+            button2Color = Color(0xFF82AAE3),
             onDismiss = {
+                delete.value = false
+                activeState.value = true},
+            onClose = {
                 delete.value = false
                 activeState.value = true},
             onDone = {
                 thread.launch {
-                    if (itemsIdRef?.isNotEmpty()!!) {
-                        itemsContainer.deleteAll(itemsIdRef)
+                    if (oldItemsList.isNotEmpty()) {
+                        itemsContainer.deleteAll(convertToItemHistory(oldItemsList,note?.id ?: 0,null))
                     }
                     storage.delete(stateId!!)
                     val newIncomes = balance.income?.minus(note?.income ?: BigDecimal.ZERO)
@@ -472,12 +486,10 @@ fun AddNote(
                         lastUpdate = Date(),
                         status = statuss.first,
                         noteCount = balance.noteCount!! - 1,
-                        itemsCount = countItems
+                        itemsCount = itemsContainer.getCountItems()
                     ))
                     delete.value = false
                     activeState.value = true
-                    storage.onTrigger()
-                    itemsContainer.onTrigger()
                     navController.navigate(route = Navigation.Note(null).link)
                 }
             },
@@ -542,6 +554,7 @@ private fun GlobalContainer(
                 color = MaterialTheme.colors.onPrimary,
                 maxLines = 6,
                 singleLine = false,
+                counterChar = 250,
                 textStyle = MaterialTheme.typography.body1
             ).Build()
             TextFieldCustom(
@@ -561,6 +574,7 @@ private fun MainProcess(
     income: MutableState<BigDecimal>,
     outcome: MutableState<BigDecimal>,
     itemsList: SnapshotStateList<ItemRaw>,
+    itemsListOld:List<ItemRaw>,
     focus: FocusManager,
     itemView: ItemViewModel,
     onError: MutableState<Boolean>,
@@ -625,7 +639,7 @@ private fun MainProcess(
                     ItemModifableComponent(data = itemsList, item = it, income = income, outcome = outcome)
                 }
             }
-            ItemAddModifableComponent(itemsList,income, focus = focus, outcome = outcome,itemView = itemView, onError = onError, msg = msg)
+            ItemAddModifableComponent(itemsList,itemsListOld,income, focus = focus, outcome = outcome,itemView = itemView, onError = onError, msg = msg)
         }
     }
 }
@@ -633,6 +647,7 @@ private fun MainProcess(
 @Composable
 private fun ItemAddModifableComponent(
     data:SnapshotStateList<ItemRaw>,
+    oldData:List<ItemRaw>,
     income: MutableState<BigDecimal>,
     outcome: MutableState<BigDecimal>,
     itemName: MutableState<String> = rememberSaveable { mutableStateOf("") },
@@ -642,12 +657,12 @@ private fun ItemAddModifableComponent(
     itemSold: MutableState<Int> = rememberSaveable { mutableStateOf(0) },
     itemDiscount: MutableState<Int> = rememberSaveable { mutableStateOf(0) },
     collapse: MutableState<Boolean> = rememberSaveable { mutableStateOf(false) },
+    thread: CoroutineScope = rememberCoroutineScope(),
     itemView: ItemViewModel,
     onError: MutableState<Boolean>,
     msg: MutableState<MessageItem>,
     focus: FocusManager
 ) {
-    val stock by itemView.stock.collectAsState()
     Card (
         modifier = Modifier
             .padding(0.dp, 10.dp, 0.dp, 0.dp)
@@ -713,11 +728,15 @@ private fun ItemAddModifableComponent(
                         modifier = Modifier,
                         value = itemDiscount,
                         onNext = { focus.moveFocus(FocusDirection.Down) },
-                        label = "Discount Per Items(0-100):",
+                        label = "Discount Per Items(0-100)",
                         currencySymbolIcon = Icons.Rounded.Discount,
                         color = MaterialTheme.colors.onPrimary,
                         endSymbol = "%",
-                        textStyle = MaterialTheme.typography.h6
+                        textStyle = MaterialTheme.typography.h6,
+                        additionalInfo = "sell cost after discount: Rp. ${DecimalFormat("#,###")
+                            .format(itemSellCost.value
+                                .multiply(BigDecimal.valueOf(100-itemDiscount.value.toLong()))
+                                .divide(BigDecimal.valueOf(100)))}.00"
                     ).Build()
                 }
             }
@@ -745,27 +764,39 @@ private fun ItemAddModifableComponent(
                         itemBuyed.value != -1 && itemSold.value != -1,
                 onClick = {
                     focus.clearFocus()
-                    itemView.onStock(itemName.value.uppercase())
-                    val dt = ItemRaw(
-                        name = itemName.value.uppercase(),
-                        buyCost = itemBuyCost.value,
-                        sellCost = itemSellCost.value,
-                        discount = itemDiscount.value,
-                        sold_out = itemSold.value,
-                        purchased = itemBuyed.value,
-                        stock = stock,
-                        total = itemSellCost.value.multiply(BigDecimal.valueOf((100 - itemDiscount.value).toLong()))
-                            .multiply(BigDecimal.valueOf(itemSold.value.toLong())).divide(BigDecimal.valueOf(100))
-                            .minus(itemBuyCost.value.multiply(BigDecimal.valueOf(itemBuyed.value.toLong())))
-                    )
-                    if ((dt.stock ?: 0) + dt.purchased - dt.sold_out >= 0) {
-                        data.add(dt)
-                        income.value = income.value.add(dt.total)
-                        outcome.value = outcome.value.add(itemBuyCost.value.multiply(BigDecimal.valueOf(itemBuyed.value.toLong())))
-                        clearItem(itemName,itemBuyCost,itemSellCost,itemDiscount,itemSold,itemBuyed)
-                    } else {
-                        msg.value = msg.value.copy(label = "Out of Stock", description = "Stock is less than zero,\nyour current stock: ${stock}", error = true)
-                        onError.value = true
+                    var itemOld: List<ItemRaw> = listOf()
+                    if (oldData.isNotEmpty())
+                        itemOld = oldData.filter { item ->
+                            val dataf = data.filter { item.delete && item.name == itemName.value.uppercase() }
+                            if (dataf.isNotEmpty())
+                                item.name == dataf.first().name
+                            else
+                                false
+                        }
+                    thread.launch {
+                        val stock = itemView.getStock(itemName.value.uppercase())
+                        val dt = ItemRaw(
+                            name = itemName.value.uppercase(),
+                            buyCost = itemBuyCost.value,
+                            sellCost = itemSellCost.value,
+                            discount = itemDiscount.value,
+                            sold_out = itemSold.value,
+                            purchased = itemBuyed.value,
+                            stock = stock,
+                            total = itemSellCost.value.multiply(BigDecimal.valueOf((100 - itemDiscount.value).toLong()))
+                                .multiply(BigDecimal.valueOf(itemSold.value.toLong())).divide(BigDecimal.valueOf(100))
+                                .minus(itemBuyCost.value.multiply(BigDecimal.valueOf(itemBuyed.value.toLong())))
+                        )
+                        if ((dt.stock ?: 0) + dt.purchased - dt.sold_out
+                            + (if (itemOld.isNotEmpty()) itemOld.first().sold_out - itemOld.first().purchased else 0) >= 0) {
+                            data.add(dt)
+                            income.value = income.value.add(dt.total)
+                            outcome.value = outcome.value.add(itemBuyCost.value.multiply(BigDecimal.valueOf(itemBuyed.value.toLong())))
+                            clearItem(itemName,itemBuyCost,itemSellCost,itemDiscount,itemSold,itemBuyed)
+                        } else {
+                            msg.value = msg.value.copy(label = "Out of Stock", description = "Stock is less than zero,\nyour current stock: ${stock}", error = true)
+                            onError.value = true
+                        }
                     }
                 }) {
                     Icon(modifier = Modifier
@@ -867,7 +898,8 @@ private fun SaveOrUpdateOrDelete(
     onUpdate: () -> Unit,
     onCancel: () -> Unit,
     onAddNew: () -> Unit,
-    activeState: MutableState<Boolean>
+    activeState: MutableState<Boolean>,
+    width: WindowWidthSizeClass
 ) {
     Card(
         modifier = Modifier
@@ -886,52 +918,76 @@ private fun SaveOrUpdateOrDelete(
                 .padding(0.dp),
             horizontalArrangement = Arrangement.Center
         ) {
-            Button(
-                modifier = Modifier
-                    .padding(0.dp, 0.dp, 10.dp, 0.dp)
-                    .fillMaxWidth()
-                    .padding(0.dp)
-                    .weight(1f),
-                enabled = activeState.value,
-                onClick = onCancel
-            ) {
-                Text(text = "Cancel")
-            }
             if(id != null) {
+                LazyHorizontalGrid(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(if (width == WindowWidthSizeClass.Compact) 100.dp else 60.dp),
+                    rows = GridCells.Adaptive(minSize = 40.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalArrangement = Arrangement.SpaceEvenly,
+                    contentPadding = PaddingValues(5.dp)
+                ) {
+                    item {
+                        Button(
+                            modifier = Modifier.width(100.dp),
+                            enabled = activeState.value,
+                            onClick = onCancel
+                        ) {
+                            Text(text = "Cancel")
+                        }
+                    }
+                    item {
+                        Button(
+                            colors = ButtonDefaults.buttonColors(
+                                backgroundColor = MaterialTheme.colors.error.copy(alpha = .75f),
+                                contentColor = Color.White
+                            ),
+                            enabled = activeState.value,
+                            onClick = onDelete
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Delete,
+                                contentDescription = "delete note"
+                            )
+                            Text(text = "Delete", maxLines = 2, softWrap = true)
+                        }
+                    }
+                    item {
+                        Button(
+                            colors = ButtonDefaults.buttonColors(
+                                backgroundColor = Color(0xFFFFB100),
+                                contentColor = Color.White
+                            ),
+                            enabled = activeState.value,
+                            onClick = onAddNew
+                        ) {
+                            Icon(imageVector = Icons.Filled.AddCircle,contentDescription = "add new note")
+                            Text(text = " New Note", maxLines = 2, softWrap = true)
+                        }
+                    }
+                    item {
+                        Button(
+                            modifier = Modifier.width(120.dp),
+                            enabled = activeState.value,
+                            onClick = onUpdate
+                        ) {
+                            Text(text = "Update")
+                        }
+                    }
+                }
+            } else {
                 Button(
                     modifier = Modifier
                         .padding(0.dp, 0.dp, 10.dp, 0.dp)
-                        .padding(0.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        backgroundColor = Color(0xFFFFB100)
-                    ),
+                        .fillMaxWidth()
+                        .padding(0.dp)
+                        .weight(1f),
                     enabled = activeState.value,
-                    onClick = onAddNew
+                    onClick = onCancel
                 ) {
-                    Icon(imageVector = Icons.Filled.AddCircle,contentDescription = "add new note")
-                    Text(text = "Add New Note", maxLines = 2, softWrap = true)
+                    Text(text = "Cancel")
                 }
-                IconButton(
-                    modifier = Modifier
-                        .padding(0.dp, 0.dp, 10.dp, 0.dp)
-                        .background(MaterialTheme.colors.error.copy(alpha = .75f))
-                        .padding(0.dp),
-                    enabled = activeState.value,
-                    onClick = onDelete
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Delete,
-                        contentDescription = "delete note",
-                        tint = MaterialTheme.colors.onError
-                    )
-                }
-                Button(
-                    enabled = activeState.value,
-                    onClick = onUpdate
-                ) {
-                    Text(text = "Update")
-                }
-            } else
                 Button(
                     enabled = activeState.value,
                     onClick = onSave
@@ -939,6 +995,7 @@ private fun SaveOrUpdateOrDelete(
                     Icon(imageVector = Icons.Rounded.Save,contentDescription = "save note")
                     Text(text = "Save")
                 }
+            }
         }
     }
 }

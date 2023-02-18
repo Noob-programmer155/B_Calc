@@ -50,25 +50,12 @@ fun getStatusBalance(income: BigDecimal, outcome: BigDecimal): Pair<StatusBalanc
     return Pair(if (add > BigDecimal.ZERO) StatusBalance.Profit else if (add < BigDecimal.ZERO) StatusBalance.Loss else StatusBalance.Balance,add)
 }
 
-fun getMaxAndMinItemDate(list: List<ItemHistory>): Pair<Long,Long> {
-    var max = 0L
-    var min = 0L
-    list.forEach {
-        val d = it.date.time
-        if (d > max)
-            max = d
-        if (d < min)
-            min = d
-    }
-    return Pair(max,min)
+fun convertDateToDayOfYear(date: Long): Float {
+    return date.toFloat()
 }
 
-fun convertDateToDayOfYear(date: Long, min: Long): Float {
-    return ((date - min) / (1000L * 60L * 60L * 24L)).toFloat()
-}
-
-fun convertDayOfYearToDate(dateConvert: Float, min: Long): Date {
-    return Date(min + (dateConvert.toLong() * (1000L * 60L * 60L * 24L)))
+fun convertDayOfYearToDate(dateConvert: Float): Date {
+    return Date(dateConvert.toLong())
 }
 
 fun convertToItem(itemRaws: List<ItemHistory>): List<Item> {
@@ -90,8 +77,11 @@ fun convertToItem(itemRaws: List<ItemHistory>): List<Item> {
     }
 }
 
-fun convertToItemHistory(itemRaws: List<ItemRaw>, noteId: Long): List<ItemHistory> {
+fun convertToItemHistory(itemRaws: List<ItemRaw>, noteId: Long, oldItemRawsDeleted: List<ItemRaw>?): List<ItemHistory> {
     return itemRaws.map {
+        var data = listOf<ItemRaw>()
+        if (oldItemRawsDeleted != null)
+            data = oldItemRawsDeleted.filter {item -> item.name == it.name }
         ItemHistory(
             id = it.id,
             note = noteId,
@@ -101,8 +91,10 @@ fun convertToItemHistory(itemRaws: List<ItemRaw>, noteId: Long): List<ItemHistor
             discount = it.discount,
             sold_out = it.sold_out,
             purchased = it.purchased,
-            stock = it.purchased + (it.stock ?: 0) - it.sold_out,
-            total_item = it.sold_out + it.purchased + (it.stock ?: 0),
+            stock = it.purchased + (it.stock ?: 0) - it.sold_out
+                    + if (data.isNotEmpty()) data.first().sold_out - data.first().purchased else 0,
+            total_item = it.sold_out + it.purchased + (it.stock ?: 0)
+                    + if (data.isNotEmpty()) - data.first().sold_out - data.first().purchased else 0,
             total = it.total,
             date = Date()
         )
@@ -380,39 +372,42 @@ fun MessageDialog(
     title: String,
     doneText: String = "Done",
     onDone: () -> Unit,
+    button1Color: Color = MaterialTheme.colors.onBackground,
+    button2Color: Color = MaterialTheme.colors.onBackground,
     error: Boolean?,
     closeText: String = "Close",
     withCloseButton: Boolean = true,
     open: MutableState<Boolean>,
+    onClose: () -> Unit = { open.value = !open.value },
     onDismiss: () -> Unit = {},
     body: String
 ) {
     if (open.value) {
         AlertDialog(
             modifier = Modifier.padding(40.dp,0.dp).padding(),
-            backgroundColor = if (error != null) {if (error) Color.Red else Color.Green} else MaterialTheme.colors.background,
-            contentColor = if (error != null) {Color.White} else MaterialTheme.colors.onBackground,
+            backgroundColor = if (error != null) {if (error) Color.Red else Color(0xFF03C988)} else MaterialTheme.colors.background,
+            contentColor = if (error != null) {Color.White} else Color(0xFF82AAE3),
             onDismissRequest = onDismiss,
             title = {
                 Text(text = title, style = MaterialTheme.typography.h3)
             },
             text = {
-                Text(text = body, style = MaterialTheme.typography.h3)
+                Text(text = body, style = MaterialTheme.typography.body1)
             },
             buttons = {
                 Row(
                     modifier = Modifier
-                        .padding(all = 8.dp)
+                        .padding(all = 5.dp)
                         .fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(
                         modifier = Modifier
-                            .padding(10.dp),
+                            .padding(5.dp),
                         onClick = onDone,
                         colors = ButtonDefaults.buttonColors(
                             backgroundColor = Color.Transparent,
-                            contentColor = if (error != null) {Color.White} else MaterialTheme.colors.onBackground
+                            contentColor = if (error != null) {Color.White} else button1Color
                         )
                     ) {
                         Text(text = doneText)
@@ -420,12 +415,12 @@ fun MessageDialog(
                     if (withCloseButton) {
                         TextButton(
                             modifier = Modifier
-                                .padding(15.dp, 0.dp, 0.dp, 0.dp)
-                                .padding(10.dp),
-                            onClick = { open.value = !open.value },
+                                .padding(10.dp, 0.dp, 0.dp, 0.dp)
+                                .padding(5.dp),
+                            onClick = onClose,
                             colors = ButtonDefaults.buttonColors(
                                 backgroundColor = Color.Transparent,
-                                contentColor = if (error != null) {Color.White} else MaterialTheme.colors.onBackground
+                                contentColor = if (error != null) {Color.White} else button2Color
                             )
                         ) {
                             Text(text = closeText)
@@ -553,6 +548,8 @@ class TextFieldCustom<T>(
     val currencySymbolIcon: ImageVector? = null,
     val endSymbol: String? = null,
     val color: Color,
+    val counterChar: Int? = null,
+    val additionalInfo: String? = null,
     val innerPadding: PaddingValues = PaddingValues(12.dp, 5.dp)
 ) {
     private val valueIns: (it: T) -> TextFieldValue
@@ -570,7 +567,7 @@ class TextFieldCustom<T>(
             }
         }
         valueChange = when(value.value) {
-            is String -> {{ value.value = it.text as T}}
+            is String -> {{ value.value = it.text as T }}
             is BigDecimal -> {{
                 if (it.text.isNotBlank()) {
                     if (it.text.last().isDigit()) {
@@ -602,7 +599,14 @@ class TextFieldCustom<T>(
         BasicTextField(
             modifier = modifier,
             value = valueIns(value.value),
-            onValueChange = valueChange,
+            onValueChange = {
+                if (counterChar != null) {
+                    val lenght = it.text.length
+                    if (lenght <= counterChar)
+                        valueChange(it)
+                } else
+                    valueChange(it)
+            },
             keyboardOptions = KeyboardOptions(
                 imeAction = ImeAction.Next,
                 keyboardType = when(value.value) {
@@ -629,13 +633,12 @@ class TextFieldCustom<T>(
                             .fillMaxWidth()
                             .padding(innerPadding)
                     ) {
-                        if (currencySymbolIcon == null)
-                            Text(
-                                modifier = Modifier.padding(),
-                                text = label,
-                                color = color,
-                                style = MaterialTheme.typography.body1
-                            )
+                        Text(
+                            modifier = Modifier.padding(),
+                            text = label,
+                            color = color,
+                            style = MaterialTheme.typography.body1
+                        )
                         Row (verticalAlignment = Alignment.CenterVertically) {
                             if (currencySymbolIcon != null)
                                 Icon(
@@ -662,6 +665,13 @@ class TextFieldCustom<T>(
                             else
                                 Text(text = endSymbol ?: "", style = textStyle.copy(color = color))
                         }
+                        if (additionalInfo != null || counterChar != null)
+                            Text(
+                                modifier = Modifier.padding(),
+                                text = if (counterChar != null) "remaining character: ${counterChar - (value.value as String).length}" else additionalInfo!!,
+                                color = color,
+                                style = MaterialTheme.typography.caption.copy(fontStyle = FontStyle.Normal)
+                            )
                     }
                 }
             }

@@ -12,7 +12,7 @@ sealed class Navigation(@StringRes val resId: Int, val link: String) {
     class HomeItem : Navigation(R.string.navigation_home_item, "${Home().link}?type=item")
     class Note(id: Long?) : Navigation(R.string.adding_note_calc_navigation,if(id == null) "note" else "note?id=${id}")
 //    Visualize(resId = R.string.visualization_navigation, "visualize"),
-    class VisualizeItem: Navigation(R.string.visualization_navigation,"visualize/item/{page}")
+    class VisualizeItem(page:Int?): Navigation(R.string.visualization_navigation,if (page == null) "visualize/item/{page}" else "visualize/item/${page}")
 }
 
 data class NavigationItem(
@@ -26,9 +26,9 @@ data class NavigationItem(
 //)
 
 object NavigationLoader {
-    fun DefaultItem(): List<NavigationItem> {
+    fun DefaultItem(page: Int?): List<NavigationItem> {
         return listOf(
-            NavigationItem(Icons.Filled.StackedLineChart, Navigation.VisualizeItem()),
+            NavigationItem(Icons.Filled.StackedLineChart, Navigation.VisualizeItem(page)),
             NavigationItem(Icons.Filled.Edit, Navigation.Note(null)),
             NavigationItem(Icons.Default.Home, Navigation.Home()),
         )

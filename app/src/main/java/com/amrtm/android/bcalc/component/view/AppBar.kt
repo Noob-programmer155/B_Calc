@@ -40,10 +40,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.amrtm.android.bcalc.R
-import com.amrtm.android.bcalc.ViewMain
 import com.amrtm.android.bcalc.component.data.NavigationItem
 import com.amrtm.android.bcalc.component.data.NavigationLoader
 import com.amrtm.android.bcalc.component.data.viewmodel.ItemViewModel
@@ -60,8 +58,8 @@ fun AppBarMain(
     windowWidth: WindowWidthSizeClass,
     painter: Painter? = painterResource(id = R.drawable.iconbcalc_1),
     collapseItemHome: MutableState<Boolean> = remember { mutableStateOf(false) },
-    noteView: NoteViewModel = viewModel(factory = ViewMain.Factory),
-    itemView: ItemViewModel = viewModel(factory = ViewMain.Factory),
+    noteView: NoteViewModel,
+    itemView: ItemViewModel,
     isNote: MutableState<Int>,
     searchBtnTrigger: MutableState<Boolean>,
     scaffoldState: ScaffoldState,
@@ -189,6 +187,7 @@ private fun TopBar(
                             if (isNote.value == NOTE) noteView.onSearch(searchChange.value) else itemView.onSearch(searchChange.value)
                         searchBtnTrigger.value = !searchBtnTrigger.value
                         focus.clearFocus()
+                        searchChange.value = ""
                     },
                     iconColor = iconColor
                 )
@@ -286,7 +285,9 @@ fun Navigation(
     navController: NavHostController,
     windowWidth: WindowWidthSizeClass
 ) {
-    val dataItems: List<NavigationItem> = NavigationLoader.DefaultItem()
+    val dataItems: List<NavigationItem> = NavigationLoader.DefaultItem(
+        if (windowWidth == WindowWidthSizeClass.Compact) 10 else if (windowWidth == WindowWidthSizeClass.Medium) 20 else 30
+    )
     NavigationBar(
         modifier = Modifier.fillMaxWidth(),
         containerColor = MaterialTheme.colors.background,

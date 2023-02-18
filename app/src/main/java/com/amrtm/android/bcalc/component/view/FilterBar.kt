@@ -39,7 +39,10 @@ fun FilterMain(
         if (isNote)
             FilterDate(
                 scaffoldState = scaffoldState,
-                onFilter = { noteView.onFilter(dateStartChange.value,dateEndChange.value) },
+                onFilter = {
+                    noteView.onFilter(dateStartChange.value,dateEndChange.value)
+                    dateStartChange.value = Date()
+                    dateEndChange.value = Date() },
                 dateStartChange = dateStartChange,
                 dateEndChange = dateEndChange,
                 thread = thread,
@@ -48,7 +51,10 @@ fun FilterMain(
         else
             FilterBigDecimal(
                 scaffoldState = scaffoldState,
-                onFilter = { itemView.onFilter(costStartChange.value,costEndChange.value) },
+                onFilter = {
+                    itemView.onFilter(costStartChange.value,costEndChange.value)
+                    costStartChange.value = BigDecimal.ZERO
+                    costStartChange.value = BigDecimal.ZERO},
                 costStartChange = costStartChange,
                 costEndChange = costEndChange,
                 thread = thread,
@@ -72,6 +78,7 @@ fun Search(
             if (isNote) noteView.onSearch(searchChange.value)
             else itemView.onSearch(searchChange.value)
             focus.clearFocus()
+            searchChange.value = ""
                            },
         stateSearchItem = searchChange
     )

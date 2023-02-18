@@ -2,14 +2,16 @@ package com.amrtm.android.bcalc.component.data.repository
 
 import android.annotation.SuppressLint
 import android.content.Context
+import androidx.paging.PagingSource
 import androidx.room.*
 import com.amrtm.android.bcalc.component.data.DataConverter
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import java.math.BigDecimal
 import java.util.*
+import java.util.jar.Attributes.Name
 
-@Database(entities = [Balance::class, Note::class, Item::class,ItemHistory::class], version = 1, exportSchema = false)
+@Database(entities = [Balance::class, Note::class, Item::class, ItemHistory::class], version = 1, exportSchema = false)
 @TypeConverters(DataConverter::class)
 abstract class BcalcDatabase: RoomDatabase() {
     abstract fun daoBalance(): StorageBalance
@@ -56,8 +58,8 @@ interface StorageBalance {
 @Dao
 @TypeConverters(DataConverter::class)
 interface StorageNote {
-    @Query("SELECT * FROM note WHERE date BETWEEN :start AND :end AND name LIKE '%'|| :name ||'%' AND id > :id AND name >= :nameIndex ORDER BY name,id LIMIT :limit")
-    suspend fun getAllNotes(name: String, start: Date, end: Date, id: Long, nameIndex: String, limit: Int): List<Note>
+    @Query("SELECT * FROM note WHERE date BETWEEN :start AND :end AND name LIKE '%'|| :name ||'%' ORDER BY name,id")
+    fun getAllNotes(name: String, start: Date, end: Date): PagingSource<Int,Note>
 
     @Transaction
     @Query("SELECT * FROM note WHERE id = :id")
@@ -70,7 +72,7 @@ interface StorageNote {
     suspend fun updateNote(note: Note)
 
     @Delete(entity = Note::class)
-    fun deleteNote(id: IdRef)
+    suspend fun deleteNote(id: IdRef)
 }
 
 data class NoteItems(
@@ -84,24 +86,26 @@ data class NoteItems(
 @Dao
 @TypeConverters(DataConverter::class)
 interface StorageItem {
-    @Query("SELECT * FROM item WHERE sell_cost BETWEEN :start AND :end AND name LIKE '%'|| :name ||'%' AND id > :id AND name >= :nameIndex ORDER BY name,id ASC LIMIT :limit")
-    suspend fun getItems(name: String,start: BigDecimal, end: BigDecimal,id: Long, nameIndex: String, limit: Int): List<Item>
+    @Query("SELECT * FROM item WHERE sell_cost BETWEEN :start AND :end AND name LIKE '%'|| :name ||'%' ORDER BY name,id")
+    fun getItems(name: String,start: BigDecimal, end: BigDecimal): PagingSource<Int,Item>
 
-    @Query("SELECT * FROM item WHERE id > :id AND name >= :nameIndex ORDER BY name,id ASC LIMIT :limit")
-    suspend fun getItems(id: Long, nameIndex: String, limit: Int): List<Item>
+    @Query("SELECT * FROM item ORDER BY name,id")
+    fun getItems(): PagingSource<Int,Item>
 
     @Query("SELECT COUNT(*) FROM item")
-    fun getCountItems(): Flow<Int>
+    suspend fun getCountItems(): Int
 
     @Query("SELECT stock FROM itemHistory WHERE name = :name ORDER BY date DESC LIMIT 1")
-    fun getStock(name: String): Flow<Int?>
+    suspend fun getStock(name: String): Int?
 
     @Query("SELECT name FROM item WHERE name IN(:names)")
     suspend fun checkAvailability(names: List<String>): List<String>
 
+    @Query("SELECT * FROM itemHistory WHERE name IN(:names) ORDER BY date,id DESC")
+    suspend fun checkAvailabilityItemHistory(names: List<String>): List<ItemHistory>
+
     //Data Visualization
-    @Transaction
-    @Query("SELECT * FROM itemHistory WHERE name = :name ORDER BY date,name")
+    @Query("SELECT * FROM itemHistory WHERE name = :name ORDER BY date,name ASC")
     fun getHistoryItem(name: String): Flow<List<ItemHistory>>
 
 //    @Query("SELECT * from item WHERE id = :id")
@@ -140,8 +144,8 @@ interface StorageItem {
 //    suspend fun deleteItem(id: Int)
 
     @Delete(entity = Item::class)
-    fun deleteItem(ids: List<IdRef>)
+    suspend fun deleteItem(ids: List<NameRef>)
 
     @Delete(entity = ItemHistory::class)
-    fun deleteItemHistory(id: List<IdRef>)
+    suspend fun deleteItemHistory(id: List<IdRef>)
 }

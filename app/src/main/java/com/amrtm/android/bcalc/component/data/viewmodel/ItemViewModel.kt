@@ -7,10 +7,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
+import com.amrtm.android.bcalc.component.data.VisualDataAttributeLoader
 import com.amrtm.android.bcalc.component.data.repository.*
+import com.amrtm.android.bcalc.component.view.Visualization
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.util.*
 
@@ -30,90 +31,69 @@ open class ItemViewModel(
 
     val pageSize: Int = (savedStateHandle["page"] ?: 10)
 
-    private val state: StateFlow<State.StateItem>
+    private val _state: MutableStateFlow<State.StateItem>
     val pagingData: Flow<PagingData<Item>>
-    val stock: StateFlow<Int?>
+    private val _dataVisual: MutableStateFlow<State.StateVisual>
+    val dataVisual: Flow<List<ItemHistory>>
 
-    private val action: (Action) -> Unit
-
-    fun onTrigger() {
-        action(Action.SearchItem(DEFAULT_QUERY))
-        action(Action.FilterItem(START_NUMBER, END_NUMBER))
+    fun clearQuery() {
+        _state.value = State.StateItem(DEFAULT_QUERY, START_NUMBER, END_NUMBER)
     }
 
-    fun onStock(name: String) {
-        action(Action.QueryItem(name))
-    }
-
-    fun onSearch(query: String){
-        action(Action.SearchItem(query.uppercase()))
+    fun onSearch(query: String) {
+        _state.value = _state.value.copy(search = query)
     }
 
     fun onFilter(start: BigDecimal, end: BigDecimal) {
-        action(Action.FilterItem(start, end))
+        _state.value = _state.value.copy(costStart = start, costEnd = end)
+    }
+
+    fun setName(name: String?) {
+        _dataVisual.value = _dataVisual.value.copy(name = name ?: "")
     }
 
     init {
         val initSearch = savedStateHandle[SAVED_NAME_QUERY_ITEM] ?: DEFAULT_QUERY
         val initStart = savedStateHandle[SAVED_NAME_START_NUMBER] ?: START_NUMBER
         val initEnd = savedStateHandle[SAVED_NAME_END_NUMBER] ?: END_NUMBER
-        val sharedFlow = MutableSharedFlow<Action>()
-        val search = sharedFlow.filterIsInstance<Action.SearchItem>()
-            .distinctUntilChanged()
-            .onStart { emit(Action.SearchItem(query = initSearch)) }
-        val filter = sharedFlow.filterIsInstance<Action.FilterItem>()
-            .distinctUntilChanged()
-            .onStart { emit(Action.FilterItem(initStart,initEnd)) }
-        val stockTrigger = sharedFlow.filterIsInstance<Action.QueryItem>()
+        _state = MutableStateFlow(State.StateItem(initSearch,initStart,initEnd))
+        _dataVisual = MutableStateFlow(State.StateVisual(""))
 
-        stock = stockTrigger.flatMapLatest {
-            getStock(it.name)
+        dataVisual = _dataVisual.flatMapLatest {
+            itemDataVisual(it.name)
         }.stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(TIMEOUT_MILLIS),
-            initialValue = null
+            started = SharingStarted.Lazily,
+            initialValue = listOf()
         )
 
-        pagingData = combine(search,filter,::Pair).flatMapLatest {
-            searchItem(it.first.query,it.second.start,it.second.end)
+        pagingData = _state.flatMapLatest {
+            searchItem(it.search, it.costStart, it.costEnd)
         }.cachedIn(viewModelScope)
-
-        state = combine(search,filter,::Pair).map {
-            State.StateItem(
-                search = it.first.query,
-                costStart = it.second.start,
-                costEnd = it.second.end
-            )
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(TIMEOUT_MILLIS),
-            initialValue = State.StateItem(DEFAULT_QUERY, START_NUMBER, END_NUMBER)
-        )
-
-        action = {action ->
-            viewModelScope.launch { sharedFlow.emit(action) }
-        }
     }
 
     override fun onCleared() {
         super.onCleared()
-        savedStateHandle[SAVED_NAME_QUERY_ITEM] = state.value
-        savedStateHandle[SAVED_NAME_START_NUMBER] = state.value.costStart
-        savedStateHandle[SAVED_NAME_END_NUMBER] = state.value.costEnd
+        listItemRaw.clear()
+        savedStateHandle[SAVED_NAME_QUERY_ITEM] = _state.value.search
+        savedStateHandle[SAVED_NAME_START_NUMBER] = _state.value.costStart
+        savedStateHandle[SAVED_NAME_END_NUMBER] = _state.value.costEnd
     }
+
+    private fun itemDataVisual(name: String): Flow<List<ItemHistory>> = itemRepo.get(name)
 
     private fun searchItem(query: String, start: BigDecimal, end: BigDecimal): Flow<PagingData<Item>> = itemRepo.getAllItems(query,pageSize,start,end)
 
-    fun getStock(name:String):  Flow<Int?> = itemRepo.getStock(name)
+    suspend fun getStock(name:String):  Int? = itemRepo.getStock(name)
 
-    fun getCountItems(): Flow<Int> = itemRepo.getCount()
+    suspend fun getCountItems(): Int = itemRepo.getCount()
 
     suspend fun addAll(item: List<ItemHistory>) {
         itemRepo.addAll(item)
     }
 
-    suspend fun deleteAll(ids: List<ItemHistory>) {
-        itemRepo.deleteAll(ids)
+    suspend fun deleteAll(items: List<ItemHistory>) {
+        itemRepo.deleteAll(items)
     }
 }
 
