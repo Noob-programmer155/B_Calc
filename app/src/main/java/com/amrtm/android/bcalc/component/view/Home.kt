@@ -2,10 +2,10 @@ package com.amrtm.android.bcalc.component.view
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandMore
@@ -19,6 +19,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -124,7 +126,25 @@ fun BalanceCard (
     Box(
         modifier = modifier
     ) {
-        BalanceCardItem(screenWidth = screenWidth, balance = storage)
+        if (storage != null)
+            BalanceCardItem(screenWidth = screenWidth, balance = storage!!)
+        else
+            Box (
+                modifier = Modifier
+                    .padding(10.dp)
+                    .border(
+                        width = 8.dp,
+                        color = Color.LightGray.copy(alpha = .8f),
+                        shape = RectangleShape
+                    )
+                    .padding(30.dp)
+            ){
+                Text(text = "Add new Note, to get balance status",
+                    style = MaterialTheme.typography.h6,
+                    color = Color.LightGray.copy(alpha = .8f),
+                    textAlign = TextAlign.Center
+                )
+            }
     }
 }
 
@@ -145,7 +165,8 @@ fun BalanceCardItem (
                     easing = LinearOutSlowInEasing
                 ),
                 finishedListener = { _, _ -> onFinishedListener.value = !onFinishedListener.value }
-            ).padding(15.dp,15.dp,15.dp,30.dp),
+            )
+            .padding(15.dp, 15.dp, 15.dp, 30.dp),
         backgroundColor = MaterialTheme.colors.secondaryVariant,
         contentColor = MaterialTheme.colors.onSecondary,
         shape = MaterialTheme.shapes.medium,

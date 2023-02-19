@@ -1,15 +1,17 @@
 package com.amrtm.android.bcalc.component.data
 
 import androidx.compose.ui.graphics.Color
+import co.yml.charts.common.model.Point
 import com.amrtm.android.bcalc.component.view.Visualization
-import com.madrapps.plot.line.DataPoint
+import java.util.*
 
 object VisualDataAttributeLoader {
     fun bindDataPointToColor(
-        dataPoint: List<DataPoint>,
+        dataPoint: List<Point>,
         title: String,
         xLabel: String,
         yLabel: String,
+        date: List<Date>,
         type: Visualization.Companion.TypeStatus,
         labels: List<Visualization.Companion.DataLabel>,
         legends: List<Visualization.Companion.Legend>
@@ -21,7 +23,8 @@ object VisualDataAttributeLoader {
             yTitle = yLabel,
             title = title,
             dataPopup = labels,
-            dataLegends = legends
+            dataLegends = legends,
+            date = date
         )
     }
 
@@ -29,30 +32,30 @@ object VisualDataAttributeLoader {
         return listOf(
             ChartColor(
                 mainColor = Color(0xFF5B8FB9),
-                areaColor = Color(0xFF5B8FB9).copy(alpha = 0.2f),
-                interceptionColor = Color(0xFF7286D3),
-                pointColor1 = Color(0xFF8EA7E9).copy(alpha = 0.5f),
+                areaColor = Color(0xFF5B8FB9),
+                interceptionColor = Color(0xFFBAD7E9),
+                pointColor1 = Color(0xFF85CDFD),
                 pointColor2 = Color.White
             ),
             ChartColor(
                 mainColor = Color(0xFFFC7300),
-                areaColor = Color(0xFFFC7300).copy(alpha = 0.2f),
-                interceptionColor = Color(0xFFFF8B13),
-                pointColor1 = Color(0xFFFF6E31).copy(alpha = 0.5f),
+                areaColor = Color(0xFFFC7300),
+                interceptionColor = Color(0xFFF2CD5C),
+                pointColor1 = Color(0xFFFEC868),
                 pointColor2 = Color.White
             ),
             ChartColor(
                 mainColor = Color(0xFF1F8A70),
-                areaColor = Color(0xFF1F8A70).copy(alpha = 0.2f),
+                areaColor = Color(0xFF1F8A70),
                 interceptionColor = Color(0xFFAACB73),
-                pointColor1 = Color(0xFFABC270).copy(alpha = 0.5f),
+                pointColor1 = Color(0xFFABC270),
                 pointColor2 = Color.White
             ),
             ChartColor(
-                mainColor = Color(0xFFFFE15D),
-                areaColor = Color(0xFFFFE15D).copy(alpha = 0.2f),
-                interceptionColor = Color(0xFFF0FF42),
-                pointColor1 = Color(0xFFF5EA5A).copy(alpha = 0.5f),
+                mainColor = Color(0xFF7B2869),
+                areaColor = Color(0xFF58287F),
+                interceptionColor = Color(0xFFC85C8E),
+                pointColor1 = Color(0xFFB08BBB),
                 pointColor2 = Color.White
             ),
         )

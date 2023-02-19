@@ -2,5 +2,6 @@
 <resources>
     <style name="Theme.BCalc" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:statusBarColor">@color/light_bar</item>
+        <item name="android:windowBackground">@color/light_bar</item>
     </style>
 </resources>

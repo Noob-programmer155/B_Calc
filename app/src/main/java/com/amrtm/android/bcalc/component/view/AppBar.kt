@@ -324,8 +324,8 @@ fun Navigation(
                         text = stringResource(id = it.route.resId),
                         textAlign = TextAlign.Center,
                         style = if (windowWidth >= WindowWidthSizeClass.Medium)
-                            MaterialTheme.typography.body1.copy(fontWeight = FontWeight.Bold)
-                        else MaterialTheme.typography.caption.copy(fontSize = 8.sp)
+                            MaterialTheme.typography.h5.copy(fontWeight = FontWeight.Bold)
+                        else MaterialTheme.typography.caption
                     )
                 }
             )

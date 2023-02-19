@@ -1,49 +1,41 @@
 package com.amrtm.android.bcalc.component.view
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.*
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.rounded.Square
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.paging.compose.collectAsLazyPagingItems
+import co.yml.charts.common.model.Point
 import com.amrtm.android.bcalc.ViewMain
 import com.amrtm.android.bcalc.component.data.ChartColor
 import com.amrtm.android.bcalc.component.data.VisualDataAttributeLoader
 import com.amrtm.android.bcalc.component.data.repository.ItemHistory
 import com.amrtm.android.bcalc.component.data.viewmodel.ItemViewModel
-import com.madrapps.plot.line.DataPoint
-import com.madrapps.plot.line.LineGraph
-import com.madrapps.plot.line.LinePlot
-import java.text.DecimalFormat
-import java.text.SimpleDateFormat
+import com.amrtm.android.bcalc.ui.theme.BCalcTheme
+import java.math.BigDecimal
 import java.util.*
+import kotlin.random.Random
 
 class Visualization {
     companion object {
@@ -55,14 +47,6 @@ class Visualization {
             TOTAL(3)
         }
 
-        val minXData: MutableState<Long> = mutableStateOf(Long.MAX_VALUE)
-        val maxXData: MutableState<Long> = mutableStateOf(Long.MIN_VALUE)
-
-        fun updateVisual() {
-            minXData.value = Long.MAX_VALUE
-            maxXData.value = Long.MIN_VALUE
-        }
-
         data class Legend(
             val icon: ImageVector,
             val color: Color,
@@ -70,13 +54,14 @@ class Visualization {
         )
 
         data class DataLabel(
-            val color: Color,
+//            val color: Color,
             val name: String,
             val currency: Boolean
         )
 
         data class DataItem(
-            val data: List<DataPoint>,
+            val data: List<Point>,
+            val date: List<Date>,
             val color: ChartColor,
             val title: String,
             val xTitle: String,
@@ -85,36 +70,71 @@ class Visualization {
             val dataLegends: List<Legend>
         )
 
-        fun getDataItem(sortedData: ItemHistory,vararg types: TypeStatus): Map<TypeStatus,DataPoint> {
-            if (sortedData.date.time > maxXData.value)
-                maxXData.value = sortedData.date.time
-            if (sortedData.date.time < minXData.value)
-                minXData.value = sortedData.date.time
-            val date = convertDateToDayOfYear(sortedData.date.time)
-            val arr = mutableMapOf<TypeStatus,DataPoint>()
+        fun getDataItem(sortedData: ItemHistory,vararg types: TypeStatus,index: Int): Pair<Date,Map<TypeStatus,Point>> {
+            val arr = mutableMapOf<TypeStatus,Point>()
             for (type in types) {
                 when(type) {
-                    TypeStatus.COST -> arr.put(TypeStatus.COST,DataPoint(date,sortedData.sellCost.toFloat()))
-                    TypeStatus.SOLD -> arr.put(TypeStatus.SOLD,DataPoint(date,sortedData.sold_out.toFloat()))
-                    TypeStatus.TOTAL -> arr.put(TypeStatus.TOTAL,DataPoint(date,sortedData.total.toFloat()))
-                    TypeStatus.STOCK -> arr.put(TypeStatus.STOCK,DataPoint(date,sortedData.stock.toFloat()))
+                    TypeStatus.COST -> arr[TypeStatus.COST] = Point(index.toFloat(),sortedData.sellCost.toFloat())
+                    TypeStatus.SOLD -> arr[TypeStatus.SOLD] = Point(index.toFloat(),sortedData.sold_out.toFloat())
+                    TypeStatus.TOTAL -> arr[TypeStatus.TOTAL] = Point(index.toFloat(),sortedData.total.toFloat())
+                    TypeStatus.STOCK -> arr[TypeStatus.STOCK] = Point(index.toFloat(),sortedData.stock.toFloat())
                     else -> {}
                 }
             }
-            return arr
+            return Pair(sortedData.date,arr)
         }
     }
 
     object Load {
+        fun dataTest(): Map<TypeStatus,DataItem> {
+            val randomCost = Random.nextLong(1000,100000)
+            val randomDiscount = Random.nextInt(0,100)
+            val randomPurchase = Random.nextInt(40,400)
+            val randomStock = Random.nextInt(0,400)
+            val day = 86400000
+            val items = List(listOf(1..4).size) { i ->
+                val cost = randomCost
+                val discount = randomDiscount
+                val purchase = randomPurchase
+                val stock = randomStock
+                ItemHistory(i.toLong()+1,
+                    2,
+                    "ITEM ${i}",
+                    BigDecimal.valueOf(cost),
+                    BigDecimal.valueOf(cost + 1000),
+                    discount,
+                    purchase - 38,
+                    purchase,
+                    stock,
+                    stock + purchase - 38,
+                    BigDecimal.valueOf((cost+1000) * discount / 100 * (purchase - 38)),
+                    Date(Date().time - (day * (i-1))))
+            }.mapIndexed {i,it ->
+                getDataItem(it,*type.toTypedArray(), index = i+1)
+            }
+            return type.mapIndexed {i,type ->
+                val item = items.map { it.second[type]!! }
+                VisualDataAttributeLoader.bindDataPointToColor(
+                    dataPoint = item,
+                    title = title[i],
+                    xLabel = xTitle[i],
+                    yLabel = yTitle[i],
+                    type = type,
+                    labels = listOf(label[i]),
+                    legends = listOf(legends[i]),
+                    date = items.map { it.first }
+                )
+            }.toMap()
+        }
         val type = listOf(TypeStatus.COST,TypeStatus.SOLD,TypeStatus.STOCK,TypeStatus.TOTAL)
         val title = listOf("Cost Item","Sold Item","Stock Item","Total")
         val xTitle = listOf("Date History","Date History","Date History","Date History")
         val yTitle = listOf("Cost History","Count Sold History","Stock Item History","Total History")
         val label = listOf(
-            DataLabel(Color(0xFFFC7300),"Cost",true),
-            DataLabel(Color.Green,"Count Sold",true),
-            DataLabel(Color.Blue,"In Stock",true),
-            DataLabel(Color.Cyan,"Total Income",true),
+            DataLabel(/*Color(0xFFFC7300),*/"Cost",true),
+            DataLabel(/*Color.Green,*/"Count Sold",true),
+            DataLabel(/*Color.Blue,*/"In Stock",true),
+            DataLabel(/*Color.Cyan,*/"Total Income",true),
         )
         val legends = listOf(
             Legend(Icons.Rounded.Square,VisualDataAttributeLoader.defaultColor()[0].mainColor,"Cost History"),
@@ -133,9 +153,8 @@ class Visualization {
     ) {
         LaunchedEffect(key1 = Unit) {
             view.setName(name)
-            updateVisual()
         }
-        if(name?.isBlank() ?: true) {
+        if(name?.isBlank() != false) {
             WelcomePage(
                 view = view,
                 modifier = Modifier,
@@ -191,7 +210,7 @@ class Visualization {
                     Text(
                         text = "(You can see your item history data in category cost to see " +
                                 "cost history, sold item history, stock item history, and total income in one item history)",
-                        style = MaterialTheme.typography.caption,
+                        style = MaterialTheme.typography.caption.copy(fontSize = 12.sp),
                         color = MaterialTheme.colors.onSecondary
                     )
                 }
@@ -276,8 +295,8 @@ class Visualization {
         view: ItemViewModel,
         state: MutableState<TypeStatus> = remember { mutableStateOf(TypeStatus.ALL) }
     ) {
-        val items = view.dataVisual.collectAsState(initial = listOf()).value.map {
-            getDataItem(it,*Load.type.toTypedArray())
+        val items = view.dataVisual.collectAsState(initial = listOf()).value.mapIndexed {i,it ->
+            getDataItem(it,*Load.type.toTypedArray(), index = i+1)
         }
         Card(
             modifier = modifier,
@@ -296,7 +315,7 @@ class Visualization {
                     item {
                         OutlinedButton(
                             modifier = Modifier
-                                .padding(4.dp,5.dp)
+                                .padding(4.dp, 5.dp)
                                 .padding(0.dp),
                             shape = RoundedCornerShape(50),
                             onClick = { state.value = TypeStatus.ALL }
@@ -307,7 +326,7 @@ class Visualization {
                     items(typesButton) {
                         OutlinedButton(
                             modifier = Modifier
-                                .padding(4.dp,5.dp)
+                                .padding(4.dp, 5.dp)
                                 .padding(0.dp),
                             shape = RoundedCornerShape(50),
                             onClick = { state.value = it }
@@ -319,7 +338,7 @@ class Visualization {
                 if (items.isNotEmpty())
                     CreateVisualization(
                         data = Load.type.mapIndexed {i,type ->
-                                val item = items.map { it[type]!! }
+                                val item = items.map { it.second[type]!! }
                                 VisualDataAttributeLoader.bindDataPointToColor(
                                     dataPoint = item,
                                     title = Load.title[i],
@@ -327,7 +346,8 @@ class Visualization {
                                     yLabel = Load.yTitle[i],
                                     type = type,
                                     labels = listOf(Load.label[i]),
-                                    legends = listOf(Load.legends[i])
+                                    legends = listOf(Load.legends[i]),
+                                    date = items.map { it.first }
                                 )
                             }.toMap(),
                         state = state,
@@ -342,14 +362,6 @@ class Visualization {
         state: MutableState<TypeStatus>,
         defaultxLabel: String = "Date History"
     ) {
-        val totalWidth = remember { mutableStateOf(0) }
-        val xOffset = remember { mutableStateOf(0f) }
-        val cardWidth = remember { mutableStateOf(0) }
-        val cardHeight = remember { mutableStateOf(100.dp) }
-        val visibility = remember { mutableStateOf(false) }
-        val points = remember { mutableStateOf(listOf<DataPoint>()) }
-        val density = LocalDensity.current
-        val padding = 16.dp
         Column(
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -371,19 +383,10 @@ class Visualization {
                     maxLines = 3, style = MaterialTheme.typography.caption,
                     textAlign = TextAlign.Center
                 )
-                if(data.values.size > 0)
-                    if (data.values.toList().first().data.size > 0)
-                    LineGraph(
-                        state = state,
-                        data = data,
-                        visibility = visibility,
-                        cardWidth = cardWidth,
-                        padding = padding,
-                        density = density,
-                        totalWidth = totalWidth,
-                        xOffset = xOffset,
-                        points = points
-                    )
+                Graph.LineGraph(
+                    state = state,
+                    data = data
+                )
             }
             Text(
                 modifier = Modifier.fillMaxWidth(),
@@ -392,183 +395,87 @@ class Visualization {
                 textAlign = TextAlign.Center
             )
         }
-        Box(modifier = Modifier.height(cardHeight.value)) {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(100.dp),
-                contentPadding = PaddingValues(10.dp),
-                content = {
-                    itemsIndexed(if (state.value != TypeStatus.ALL) data[state.value]?.dataLegends!! else data.map { it.value.dataLegends.first() }) {_,it ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(imageVector = it.icon, contentDescription = null, tint = it.color)
-                            Text(text = it.name)
-                        }
-                    }
-                }
-            )
-            if (visibility.value) {
-                if (points.value.size > 0)
-                    PopUpLabel(
-                        title = if (state.value != TypeStatus.ALL) data[state.value]?.title!! else "Item History",
-                        cardHeight = cardHeight,
-                        cardWidth = cardWidth,
-                        xOffset = xOffset,
-                        dataLabel = if (state.value != TypeStatus.ALL) data[state.value]?.dataPopup!! else data.map { it.value.dataPopup.first() },
-                        items = points,
-                        density = density
-                    )
-            }
-        }
-    }
-
-    @Composable
-    fun LineGraph(
-        state: MutableState<TypeStatus>,
-        data: Map<TypeStatus,DataItem>,
-        visibility: MutableState<Boolean>,
-        cardWidth: MutableState<Int>,
-        padding: Dp,
-        density: Density,
-        totalWidth: MutableState<Int>,
-        xOffset: MutableState<Float>,
-        points: MutableState<List<DataPoint>>
-    ) {
-        LineGraph(
-            plot = LinePlot(
-                if (state.value != TypeStatus.ALL) {
-                    Log.i("ITEMS",data[state.value]?.data!!.joinToString{ "points: (${it.x},${it.y})" })
-                    listOf(
-                        LinePlot.Line(
-                            data[state.value]?.data!!.map { it.copy(x = it.x - minXData.value) },
-                            LinePlot.Connection(data[state.value]?.color?.mainColor!!),
-                            LinePlot.Intersection(data[state.value]?.color?.interceptionColor!!),
-                            LinePlot.Highlight { center ->
-                                val color = data[state.value]?.color?.pointColor1!!
-                                drawCircle(color, 9.dp.toPx(), center, alpha = 0.3f)
-                                drawCircle(color, 6.dp.toPx(), center)
-                                drawCircle(data[state.value]?.color?.pointColor2!!, 3.dp.toPx(), center)
-                            },
-                            LinePlot.AreaUnderLine(data[state.value]?.color?.areaColor!!)
-                        )
-                    )
-                }
-                else
-                    data.map {
-                        Log.i("ITEMS",it.value.data.joinToString{ "points: (${it.x},${it.y})" })
-                        LinePlot.Line(
-                            it.value.data.map {items -> items.copy(x = items.x - minXData.value) },
-                            LinePlot.Connection(it.value.color.mainColor),
-                            LinePlot.Intersection(it.value.color.interceptionColor),
-                            LinePlot.Highlight { center ->
-                                val color = it.value.color.pointColor1
-                                drawCircle(color, 9.dp.toPx(), center, alpha = 0.3f)
-                                drawCircle(color, 6.dp.toPx(), center)
-                                drawCircle(it.value.color.pointColor2, 3.dp.toPx(), center)
-                            },
-                            LinePlot.AreaUnderLine(it.value.color.areaColor)
-                        )
-                    }
-            ),
-            modifier = Modifier
-                .background(MaterialTheme.colors.background)
-                .fillMaxWidth()
-                .height(220.dp),
-            onSelectionStart = { visibility.value = true },
-            onSelectionEnd = { visibility.value = false }
-        )
-        {x, pts ->
-            val cWidth = cardWidth.value.toFloat()
-            var xCenter = x + padding.toPx(density)
-            xCenter = when {
-                xCenter + cWidth / 2f > totalWidth.value -> totalWidth.value - cWidth
-                xCenter - cWidth / 2f < 0f -> 0f
-                else -> xCenter - cWidth / 2f
-            }
-            xOffset.value = xCenter
-            points.value = pts
-        }
-    }
-
-    @Composable
-    private fun PopUpLabel(
-        title: String,
-        cardWidth: MutableState<Int>,
-        cardHeight: MutableState<Dp>,
-        xOffset: MutableState<Float>,
-        dataLabel: List<DataLabel>,
-        items: MutableState<List<DataPoint>>,
-        density: Density
-    ) {
-        Surface(
-            modifier = Modifier
-                .width(200.dp)
-                .onGloballyPositioned {
-                    cardWidth.value = it.size.width
-                    cardHeight.value = toDp(it.size.height, density).dp
-                }
-                .graphicsLayer(translationX = xOffset.value),
-            shape = RoundedCornerShape(12.dp),
-            color = Color(0xFFEAE0DA)
-        ) {
-            LazyColumn(
-                modifier = Modifier
-                    .padding(10.dp)
-                    .fillMaxWidth()
+        Box(modifier = Modifier
+            .padding(0.dp)
+            .fillMaxWidth()
+            .padding(10.dp,0.dp,10.dp,20.dp)) {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
             ) {
-                item {
-                    Text(text = SimpleDateFormat("dd/MM/yyyy", Locale.US).format(convertDayOfYearToDate(items.value[0].x)), textAlign = TextAlign.End, style = MaterialTheme.typography.caption)
-                    Text(text = title, textAlign = TextAlign.Start, style = MaterialTheme.typography.h4)
-                    Divider(modifier = Modifier.padding(15.dp,0.dp))
-                }
-                itemsIndexed(dataLabel) {i,it ->
-                    Row {
-                        Icon(
-                            modifier = Modifier.padding(0.dp,0.dp,10.dp,0.dp),
-                            imageVector = Icons.Filled.FiberManualRecord,
-                            contentDescription = null,
-                            tint=it.color)
-                        Text(text = it.name)
-                        Spacer(modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f))
-                        Text(text = if (it.currency) "Rp. ${DecimalFormat("#,###.00").format(items.value[i].y)}" else items.value[i].y.toString())
+                for(dt in if (state.value != TypeStatus.ALL) data[state.value]?.dataLegends!! else data.map { it.value.dataLegends.first() })
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(imageVector = dt.icon, contentDescription = null, tint = dt.color)
+                        Text(text = dt.name)
                     }
-                }
             }
         }
     }
 
-    fun dataExample(): Map<TypeStatus, DataItem> = mapOf(
-//        Pair(TypeStatus.TOTAL,DataItem())
-    )
+//    @Composable
+//    private fun PopUpLabel(
+//        title: String,
+//        cardWidth: MutableState<Int>,
+//        cardHeight: MutableState<Dp>,
+//        xOffset: MutableState<Float>,
+//        dataLabel: List<DataLabel>,
+//        items: MutableState<List<Point>>,
+//        density: Density
+//    ) {
+//        Surface(
+//            modifier = Modifier
+//                .width(200.dp)
+//                .onGloballyPositioned {
+//                    cardWidth.value = it.size.width
+//                    cardHeight.value = toDp(it.size.height, density).dp
+//                }
+//                .graphicsLayer(translationX = xOffset.value),
+//            shape = RoundedCornerShape(12.dp),
+//            color = Color(0xFFEAE0DA)
+//        ) {
+//            LazyColumn(
+//                modifier = Modifier
+//                    .padding(10.dp)
+//                    .fillMaxWidth()
+//            ) {
+//                item {
+//                    Text(text = SimpleDateFormat("dd/MM/yyyy", Locale.US).format(convertDayOfYearToDate(items.value[0].x)), textAlign = TextAlign.End, style = MaterialTheme.typography.caption)
+//                    Text(text = title, textAlign = TextAlign.Start, style = MaterialTheme.typography.h4)
+//                    Divider(modifier = Modifier.padding(15.dp,0.dp))
+//                }
+//                itemsIndexed(dataLabel) {i,it ->
+//                    Row {
+//                        Icon(
+//                            modifier = Modifier.padding(0.dp,0.dp,10.dp,0.dp),
+//                            imageVector = Icons.Filled.FiberManualRecord,
+//                            contentDescription = null,
+//                            tint=it.color)
+//                        Text(text = it.name)
+//                        Spacer(modifier = Modifier
+//                            .fillMaxWidth()
+//                            .weight(1f))
+//                        Text(text = if (it.currency) "Rp. ${DecimalFormat("#,###.00").format(items.value[i].y)}" else items.value[i].y.toString())
+//                    }
+//                }
+//            }
+//        }
+//    }
 
     @Preview(widthDp = 480)
     @Composable
     fun ExampleLineGraph() {
         val state: MutableState<TypeStatus> = remember { mutableStateOf(TypeStatus.ALL) }
-        val totalWidth = remember { mutableStateOf(0) }
-        val xOffset = remember { mutableStateOf(0f) }
-        val cardWidth = remember { mutableStateOf(0) }
-        val visibility = remember { mutableStateOf(false) }
-        val points = remember { mutableStateOf(listOf<DataPoint>()) }
-        val density = LocalDensity.current
-        val padding = 16.dp
-        Surface {
-            Card(
-                modifier = Modifier
-                    .padding(10.dp)
-                    .padding(0.dp)
-            ) {
-                LineGraph(
-                    state = state,
-                    data = dataExample(),
-                    visibility = visibility,
-                    cardWidth = cardWidth,
-                    padding = padding,
-                    density = density,
-                    totalWidth = totalWidth,
-                    xOffset = xOffset,
-                    points = points
-                )
+        BCalcTheme {
+            Surface {
+                Card(
+                    modifier = Modifier
+                        .padding(10.dp)
+                        .padding(0.dp)
+                ) {
+                    Graph.LineGraph(
+                        state = state,
+                        data = Load.dataTest()
+                    )
+                }
             }
         }
     }

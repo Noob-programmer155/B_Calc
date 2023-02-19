@@ -11,8 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.listSaver
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
@@ -28,9 +26,9 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.amrtm.android.bcalc.component.data.repository.Item
 import com.amrtm.android.bcalc.component.data.repository.ItemHistory
 import com.amrtm.android.bcalc.component.data.repository.ItemRaw
@@ -42,27 +40,15 @@ import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
 
-internal fun Dp.toPx(density: Density) = value * density.density
-fun toDp(value:Int, density: Density) = value.toFloat() / density.density
-
 fun getStatusBalance(income: BigDecimal, outcome: BigDecimal): Pair<StatusBalance,BigDecimal> {
     val add = income.minus(outcome)
     return Pair(if (add > BigDecimal.ZERO) StatusBalance.Profit else if (add < BigDecimal.ZERO) StatusBalance.Loss else StatusBalance.Balance,add)
-}
-
-fun convertDateToDayOfYear(date: Long): Float {
-    return date.toFloat()
-}
-
-fun convertDayOfYearToDate(dateConvert: Float): Date {
-    return Date(dateConvert.toLong())
 }
 
 fun convertToItem(itemRaws: List<ItemHistory>): List<Item> {
     return itemRaws.map {
         Item(
             id = it.id,
-            note = it.note,
             name = it.name.uppercase(),
             buyCost = it.buyCost,
             sellCost = it.sellCost,
@@ -541,23 +527,29 @@ class TextFieldCustom<T>(
     val singleLine: Boolean = true,
     val label: String,
     val maxLines: Int = 1,
-    val rangeNumber: Long = -1,
+    private val rangeNumber: Long = -1,
     val textStyle: TextStyle = TextStyle(),
     val placeholder: String = "",
-    val currencySymbol: String = "Rp",
+    private val currencySymbol: String = "Rp",
     val currencySymbolIcon: ImageVector? = null,
     val endSymbol: String? = null,
     val color: Color,
     val counterChar: Int? = null,
+    private val counter: MutableState<Int>? = null,
     val additionalInfo: String? = null,
-    val innerPadding: PaddingValues = PaddingValues(12.dp, 5.dp)
+    private val innerPadding: PaddingValues = PaddingValues(12.dp, 5.dp)
 ) {
     private val valueIns: (it: T) -> TextFieldValue
     private val valueChange: (it: TextFieldValue) -> Unit
     init {
+        if (counterChar != null)
+            if (counter == null)
+                throw RuntimeException("variable counter cannot be null if using counter Char !!!")
+            else
+                counter.value = counterChar
         valueIns = when (value.value) {
             is String -> {
-                { TextFieldValue(it as String, selection = TextRange((it as String).length)) }
+                { TextFieldValue(it as String, selection = TextRange(it.length)) }
             }
             is BigDecimal -> {
                 { TextFieldValue(DecimalFormat("#,###").format(it), selection = TextRange(DecimalFormat("#,###").format(it).length)) }
@@ -567,17 +559,25 @@ class TextFieldCustom<T>(
             }
         }
         valueChange = when(value.value) {
-            is String -> {{ value.value = it.text as T }}
+            is String -> {{
+                if (counterChar != null) {
+                    val length = it.text.length
+                    if (length <= counterChar) {
+                        counter?.value = counterChar - it.text.length
+                    }
+                }
+                value.value = it.text as T
+            }}
             is BigDecimal -> {{
                 if (it.text.isNotBlank()) {
                     if (it.text.last().isDigit()) {
-                        it.text.replace(Regex(",*"),"").toBigDecimal().let {
+                        it.text.replace(Regex(",*"),"").toBigDecimal().let {itd ->
                             if (rangeNumber >= 0) {
-                                if (it.compareTo(BigDecimal.valueOf(rangeNumber)) < 1)
-                                    value.value = it as T
+                                if (itd.compareTo(BigDecimal.valueOf(rangeNumber)) < 1)
+                                    value.value = itd as T
                             }
                             else
-                                value.value = it as T
+                                value.value = itd as T
                         }
                     }
                 } else
@@ -586,7 +586,7 @@ class TextFieldCustom<T>(
             else -> {{
                 if (it.text.isNotBlank()) {
                     if (it.text.last().isDigit()) {
-                        value.value = if (it.text.isNotBlank()) it.text.toInt() as T else 0 as T
+                        value.value = it.text.toInt() as T
                     }
                 } else
                     value.value = 0 as T
@@ -599,19 +599,11 @@ class TextFieldCustom<T>(
         BasicTextField(
             modifier = modifier,
             value = valueIns(value.value),
-            onValueChange = {
-                if (counterChar != null) {
-                    val lenght = it.text.length
-                    if (lenght <= counterChar)
-                        valueChange(it)
-                } else
-                    valueChange(it)
-            },
+            onValueChange = valueChange,
             keyboardOptions = KeyboardOptions(
                 imeAction = ImeAction.Next,
                 keyboardType = when(value.value) {
                     is String -> KeyboardType.Text
-                    is BigDecimal -> KeyboardType.Number
                     else -> KeyboardType.Number
                 }
             ),
@@ -619,7 +611,7 @@ class TextFieldCustom<T>(
             singleLine = singleLine,
             cursorBrush = SolidColor(color),
             maxLines = maxLines,
-            textStyle = textStyle.copy(color = color),
+            textStyle = textStyle.copy(color = color, fontSize = (textStyle.fontSize.value + 2f).sp),
             decorationBox={
                 Surface(
                     modifier = Modifier
@@ -637,7 +629,7 @@ class TextFieldCustom<T>(
                             modifier = Modifier.padding(),
                             text = label,
                             color = color,
-                            style = MaterialTheme.typography.body1
+                            style = MaterialTheme.typography.h6
                         )
                         Row (verticalAlignment = Alignment.CenterVertically) {
                             if (currencySymbolIcon != null)
@@ -648,29 +640,34 @@ class TextFieldCustom<T>(
                                 )
                             if (value.value is BigDecimal)
                                 Text(text = "${currencySymbol}. ", style = textStyle.copy(color = color))
-                            if (value.value is String)
-                                if((value.value as String).isBlank()) {
-                                    Text(
-                                        text = placeholder,
-                                        style = TextStyle(color = color.copy(alpha = .6f))
-                                    )
-                                }
                             Box(modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f)) {
+                                if (value.value is String)
+                                    if((value.value as String).isBlank()) {
+                                        Text(
+                                            text = placeholder,
+                                            style = textStyle.copy(color = color.copy(alpha = .6f))
+                                        )
+                                    }
                                 it()
                             }
                             if (value.value is BigDecimal)
                                 Text(text = " .00", style = textStyle.copy(color = color))
-                            else
+                            else if(value.value is Int)
                                 Text(text = endSymbol ?: "", style = textStyle.copy(color = color))
                         }
-                        if (additionalInfo != null || counterChar != null)
+                        if (additionalInfo != null)
                             Text(
-                                modifier = Modifier.padding(),
-                                text = if (counterChar != null) "remaining character: ${counterChar - (value.value as String).length}" else additionalInfo!!,
+                                text = additionalInfo,
                                 color = color,
-                                style = MaterialTheme.typography.caption.copy(fontStyle = FontStyle.Normal)
+                                style = MaterialTheme.typography.body1
+                            )
+                        if (counter != null)
+                            Text(
+                                text = "remaining character: ${counter.value}",
+                                color = color,
+                                style = MaterialTheme.typography.body1
                             )
                     }
                 }

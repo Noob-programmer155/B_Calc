@@ -163,11 +163,8 @@ fun Main(
                             .verticalScroll(rememberScrollState())
                             .weight(1f, false),
                         navController = navController,
-                        homeView = homeModel,
                         focus = focus,
                         width = windowSize.widthSizeClass,
-                        storage = noteModel,
-                        itemsContainer = itemModel
                     )
                 }
             }

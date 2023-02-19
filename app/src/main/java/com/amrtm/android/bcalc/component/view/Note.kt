@@ -33,6 +33,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
@@ -40,6 +41,7 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemsIndexed
 import com.amrtm.android.bcalc.ViewMain
 import com.amrtm.android.bcalc.component.data.*
+import com.amrtm.android.bcalc.component.data.repository.Balance
 import com.amrtm.android.bcalc.component.data.repository.ItemRaw
 import com.amrtm.android.bcalc.component.data.repository.Note
 import com.amrtm.android.bcalc.component.data.repository.StatusBalance
@@ -322,9 +324,9 @@ fun NoteItem(
 
 @Composable
 fun AddNote(
-    storage: NoteViewModel,
-    homeView: HomeViewModel,
-    itemsContainer: ItemViewModel,
+    storage: NoteViewModel = viewModel(factory = ViewMain.Factory),
+    homeView: HomeViewModel = viewModel(factory = ViewMain.Factory),
+    itemsContainer: ItemViewModel = viewModel(factory = ViewMain.Factory),
     navController: NavHostController,
     modifier: Modifier,
     width: WindowWidthSizeClass,
@@ -343,7 +345,10 @@ fun AddNote(
     val openMessage: MutableState<Boolean> = rememberSaveable { mutableStateOf(false) }
     val dataMessage: MutableState<MessageItem> = remember { mutableStateOf(MessageItem()) }
     val stateId = storage.noteId?.toLongOrNull()
-    val balance by homeView.balanceData.collectAsState()
+    val balance = homeView.balanceData.collectAsState().value ?: Balance(id = null, income = BigDecimal.ZERO,
+        outcome = BigDecimal.ZERO, profit = BigDecimal.ZERO, lastUpdate = Date(), status = StatusBalance.Balance,
+        noteCount = 0, itemsCount = 0
+    )
     val noteRaw by storage.noteData.collectAsState()
     var note:Note? = null
     if (stateId != null) {
@@ -555,6 +560,7 @@ private fun GlobalContainer(
                 maxLines = 6,
                 singleLine = false,
                 counterChar = 250,
+                counter = remember { mutableStateOf(250) },
                 textStyle = MaterialTheme.typography.body1
             ).Build()
             TextFieldCustom(
@@ -668,7 +674,7 @@ private fun ItemAddModifableComponent(
             .padding(0.dp, 10.dp, 0.dp, 0.dp)
             .fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
-        backgroundColor = if (isSystemInDarkTheme()) defaultNoteColor.copy(alpha = .75f) else defaultNoteColorDark.copy(alpha = .75f),
+        backgroundColor = if (isSystemInDarkTheme()) defaultNoteColor else defaultNoteColorDark,
         contentColor = MaterialTheme.colors.onPrimary,
         border = null
     ) {

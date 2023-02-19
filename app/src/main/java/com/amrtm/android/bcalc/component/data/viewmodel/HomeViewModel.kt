@@ -18,16 +18,15 @@ class HomeViewModel(private val balanceRepo: BalanceRepo): ViewModel() {
         private const val TIMEOUT_MILLIS = 5_000L
     }
 
-    val balanceData: StateFlow<Balance> = balanceRepo.get().stateIn(
+    val balanceData: StateFlow<Balance?> = balanceRepo.get().stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(TIMEOUT_MILLIS),
-        initialValue = Balance(id = null, income = BigDecimal.ZERO, outcome = BigDecimal.ZERO, profit = BigDecimal.ZERO,
-            lastUpdate = Date(), status = StatusBalance.Balance, noteCount = 0, itemsCount = 0)
+        initialValue = null
     )
 
-    fun update(balance: Balance) {
+    fun update(balance: Balance?) {
         viewModelScope.launch {
-            balanceRepo.update(balance)
+            balanceRepo.update(balance as Any)
         }
     }
 }

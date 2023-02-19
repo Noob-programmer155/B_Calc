@@ -14,6 +14,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.count
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.util.*
@@ -21,7 +22,13 @@ import java.util.*
 class BalanceRepo(private val main: StorageBalance): Repository {
     fun get(): Flow<Balance> = main.getBalance()
     override suspend fun add(data: Any) {}
-    override suspend fun update(data: Any) = main.updateBalance(data as Balance)
+    override suspend fun update(data: Any) {
+        val balance = data as Balance
+        if (balance.id == null)
+            main.insertBalance(balance)
+        else
+            main.updateBalance(data)
+    }
     override suspend fun delete(id: Any) {}
 }
 

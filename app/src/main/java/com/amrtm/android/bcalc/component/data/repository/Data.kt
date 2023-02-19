@@ -58,7 +58,6 @@ data class Note(
 @Entity(indices = [Index(value = ["id","name"], unique = true)])
 data class Item(
     @PrimaryKey(autoGenerate = true) @ColumnInfo("id") val id: Long?,
-    @ColumnInfo("note") val note: Long,
     @ColumnInfo("name") val name: String,
     @ColumnInfo("buy_cost") val buyCost: BigDecimal,
     @ColumnInfo("sell_cost") val sellCost: BigDecimal,

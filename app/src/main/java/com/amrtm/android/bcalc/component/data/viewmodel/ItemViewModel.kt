@@ -21,7 +21,7 @@ open class ItemViewModel(
     private val savedStateHandle: SavedStateHandle
 ): ViewModel() {
     companion object {
-        private const val TIMEOUT_MILLIS = 5_000L
+//        private const val TIMEOUT_MILLIS = 5_000L
         private val START_NUMBER = BigDecimal.ZERO
         private val END_NUMBER = BigDecimal.valueOf(Long.MAX_VALUE)
         private const val DEFAULT_QUERY = ""
