@@ -39,7 +39,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.amrtm.android.bcalc.R
 import com.amrtm.android.bcalc.component.data.NavigationItem
@@ -61,6 +60,7 @@ fun AppBarMain(
     noteView: NoteViewModel,
     itemView: ItemViewModel,
     isNote: MutableState<Int>,
+    state: MutableState<Int>,
     searchBtnTrigger: MutableState<Boolean>,
     scaffoldState: ScaffoldState,
     thread: CoroutineScope,
@@ -99,7 +99,8 @@ fun AppBarMain(
                 Navigation(
                     navController = navigationController,
                     collapseItemHome = collapseItemHome,
-                    windowWidth = windowWidth
+                    windowWidth = windowWidth,
+                    state = state
                 )
             }
         },
@@ -280,7 +281,7 @@ private fun TopBar(
 
 @Composable
 fun Navigation(
-    state: MutableState<Int> = remember { mutableStateOf(2) },
+    state: MutableState<Int>,
     collapseItemHome: MutableState<Boolean>,
     navController: NavHostController,
     windowWidth: WindowWidthSizeClass
@@ -304,6 +305,7 @@ fun Navigation(
                     indicatorColor = MaterialTheme.colors.primary.copy(alpha = .2f)
                 ),
                 onClick = {
+//                    Home selection option
                     if (i >= 2) {
                         collapseItemHome.value = !collapseItemHome.value
                         state.value = i

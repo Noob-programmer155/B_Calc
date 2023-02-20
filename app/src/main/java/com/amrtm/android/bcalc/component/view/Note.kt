@@ -127,88 +127,89 @@ fun NoteItem(
     ) {
 //        stickyHeader {  }
         itemsIndexed(notes) {_,it ->
-            Card(
-                modifier = Modifier
-                    .padding(0.dp)
-                    .fillMaxWidth()
-                    .animateContentSize(
-                        animationSpec = tween(
-                            durationMillis = 500,
-                            easing = LinearOutSlowInEasing
-                        )
-                    )
-                    .padding(10.dp, 5.dp, 10.dp, 15.dp),
-                onClick = {
-                    if (stateCollapse.value == it?.id)
-                        stateCollapse.value = -1L
-                    else
-                        stateCollapse.value = it?.id!!
-                },
-                enabled = true,
-                shape = MaterialTheme.shapes.medium,
-                backgroundColor = if (!isSystemInDarkTheme()) defaultNoteColor else defaultNoteColorDark,
-                contentColor = MaterialTheme.colors.onPrimary,
-                elevation = 5.dp,
-//                border = BorderStroke(10.dp, if (!isSystemInDarkTheme()) defaultNoteBorderColor else defaultNoteBorderColorDark)
-            ) {
-                Column (
+            if (it != null)
+                Card(
                     modifier = Modifier
-                        .padding(10.dp)
+                        .padding(0.dp)
                         .fillMaxWidth()
-                        .padding(0.dp),
-                    horizontalAlignment = Alignment.Start
+                        .animateContentSize(
+                            animationSpec = tween(
+                                durationMillis = 500,
+                                easing = LinearOutSlowInEasing
+                            )
+                        )
+                        .padding(10.dp, 5.dp, 10.dp, 15.dp),
+                    onClick = {
+                        if (stateCollapse.value == it.id)
+                            stateCollapse.value = -1L
+                        else
+                            stateCollapse.value = it.id!!
+                    },
+                    enabled = true,
+                    shape = MaterialTheme.shapes.medium,
+                    backgroundColor = if (!isSystemInDarkTheme()) defaultNoteColor else defaultNoteColorDark,
+                    contentColor = MaterialTheme.colors.onPrimary,
+                    elevation = 5.dp,
+    //                border = BorderStroke(10.dp, if (!isSystemInDarkTheme()) defaultNoteBorderColor else defaultNoteBorderColorDark)
                 ) {
-                    Row (verticalAlignment = Alignment.Top) {
-                        Text(text = it?.name!!, style = MaterialTheme.typography.h3, maxLines = 2,
-                            softWrap = true, overflow = TextOverflow.Ellipsis)
-                        Text(modifier = Modifier
+                    Column (
+                        modifier = Modifier
+                            .padding(10.dp)
                             .fillMaxWidth()
-                            .weight(1f), textAlign = TextAlign.End,
-                            text = SimpleDateFormat("dd/MMM/yyyy", Locale.US).format(it.date),
-                            style = MaterialTheme.typography.body1, fontStyle = FontStyle.Italic)
-                    }
-                    Text(
-                        modifier = Modifier.padding(0.dp,5.dp),
-                        text = it?.description!!,
-                        style = MaterialTheme.typography.body1)
-                    Text(text = "* click to see details", style = MaterialTheme.typography.caption)
-                    if(stateCollapse.value == it.id) {
-                        Divider()
-                        Text(text = "Income: ${DecimalFormat("#,###.00").format(it.income)}", style = MaterialTheme.typography.h6)
-                        Text(text = "Outcome: ${DecimalFormat("#,###.00").format(it.outcome)}", style = MaterialTheme.typography.h6)
-                        Row (verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = "Status:", style = MaterialTheme.typography.h6)
-                            if (it.income- it.outcome > BigDecimal.ZERO)
-                                Icon(modifier = Modifier,
-                                    tint = StatusBalance.Profit.color,
-                                    imageVector = StatusBalance.Profit.icon!!,
-                                    contentDescription = null)
-                            else if (it.income - it.outcome == BigDecimal.ZERO)
-                                Text(text = "=", color = StatusBalance.Balance.color,  style = MaterialTheme.typography.h4)
-                            else
-                                Icon(modifier = Modifier,
-                                    tint = StatusBalance.Loss.color,
-                                    imageVector = StatusBalance.Loss.icon!!,
-                                    contentDescription = null)
+                            .padding(0.dp),
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        Row (verticalAlignment = Alignment.Top) {
+                            Text(text = it.name, style = MaterialTheme.typography.h3, maxLines = 2,
+                                softWrap = true, overflow = TextOverflow.Ellipsis)
+                            Text(modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f), textAlign = TextAlign.End,
+                                text = SimpleDateFormat("dd/MMM/yyyy", Locale.US).format(it.date),
+                                style = MaterialTheme.typography.body1, fontStyle = FontStyle.Italic)
                         }
-                        Row (
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-//                            Button(onClick = { navController.navigate(route = "${Navigation.VisualizeNote.link}/item/${it.id}") }) {
-//                                Text(text = "Get Visualize", style = MaterialTheme.typography.h5, fontStyle = FontStyle.Italic)
-//                            }
-//                            Text(modifier = Modifier
-//                                .padding(25.dp, 0.dp)
-//                                .padding(0.dp),text = "Or", style = MaterialTheme.typography.h5)
-                            Button(onClick = {onClick(it.id)}) {
-                                Icon(modifier = Modifier.padding(0.dp, 0.dp, 20.dp, 0.dp),imageVector = Icons.Filled.EditNote, contentDescription = "edit")
-                                Text(text = "Edit Note", style = MaterialTheme.typography.body1)
+                        Text(
+                            modifier = Modifier.padding(0.dp,5.dp),
+                            text = it.description,
+                            style = MaterialTheme.typography.body1)
+                        Text(text = "* click to see details", style = MaterialTheme.typography.caption)
+                        if(stateCollapse.value == it.id) {
+                            Divider()
+                            Text(text = "Income: ${DecimalFormat("#,###.00").format(it.income)}", style = MaterialTheme.typography.h6)
+                            Text(text = "Outcome: ${DecimalFormat("#,###.00").format(it.outcome)}", style = MaterialTheme.typography.h6)
+                            Row (verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = "Status:", style = MaterialTheme.typography.h6)
+                                if (it.income- it.outcome > BigDecimal.ZERO)
+                                    Icon(modifier = Modifier,
+                                        tint = StatusBalance.Profit.color,
+                                        imageVector = StatusBalance.Profit.icon!!,
+                                        contentDescription = null)
+                                else if (it.income - it.outcome == BigDecimal.ZERO)
+                                    Text(text = "=", color = StatusBalance.Balance.color,  style = MaterialTheme.typography.h4)
+                                else
+                                    Icon(modifier = Modifier,
+                                        tint = StatusBalance.Loss.color,
+                                        imageVector = StatusBalance.Loss.icon!!,
+                                        contentDescription = null)
+                            }
+                            Row (
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+    //                            Button(onClick = { navController.navigate(route = "${Navigation.VisualizeNote.link}/item/${it.id}") }) {
+    //                                Text(text = "Get Visualize", style = MaterialTheme.typography.h5, fontStyle = FontStyle.Italic)
+    //                            }
+    //                            Text(modifier = Modifier
+    //                                .padding(25.dp, 0.dp)
+    //                                .padding(0.dp),text = "Or", style = MaterialTheme.typography.h5)
+                                Button(onClick = {onClick(it.id)}) {
+                                    Icon(modifier = Modifier.padding(0.dp, 0.dp, 20.dp, 0.dp),imageVector = Icons.Filled.EditNote, contentDescription = "edit")
+                                    Text(text = "Edit Note", style = MaterialTheme.typography.body1)
+                                }
                             }
                         }
                     }
                 }
-            }
         }
         when(notes.loadState.refresh) {
             is LoadState.Loading -> item {

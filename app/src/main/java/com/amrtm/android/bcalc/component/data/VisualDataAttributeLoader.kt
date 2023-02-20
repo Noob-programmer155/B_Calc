@@ -13,8 +13,8 @@ object VisualDataAttributeLoader {
         yLabel: String,
         date: List<Date>,
         type: Visualization.Companion.TypeStatus,
-        labels: List<Visualization.Companion.DataLabel>,
-        legends: List<Visualization.Companion.Legend>
+        labels: Visualization.Companion.DataLabel,
+        legends: Visualization.Companion.Legend
     ): Pair<Visualization.Companion.TypeStatus,Visualization.Companion.DataItem> {
         return type to Visualization.Companion.DataItem(
             data = dataPoint,

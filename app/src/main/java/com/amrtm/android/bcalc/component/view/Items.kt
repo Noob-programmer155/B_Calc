@@ -87,58 +87,59 @@ fun ItemsView(
         contentPadding = PaddingValues(0.dp,5.dp)
     ) {
         itemsIndexed(items){ _,it ->
-            Card(
-                onClick = {
-                    navController.navigate(route = "${Navigation.VisualizeItem(
-                        if (width == WindowWidthSizeClass.Compact) 10 else if (width == WindowWidthSizeClass.Medium) 20 else 30
-                    ).link}?name=${it?.name}")
-                },
-                enabled = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(5.dp),
-                shape = MaterialTheme.shapes.medium,
-                backgroundColor = MaterialTheme.colors.background,
-                contentColor = MaterialTheme.colors.onBackground,
-                elevation = 5.dp,
-            ) {
-                Row (verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .padding(0.dp, 0.dp, 5.dp, 0.dp)
-                            .background(
-                                color = colors[it?.name
-                                    ?.uppercase()
-                                    ?.get(0)]!!.copy(alpha = 1f)
-                            )
-                            .padding(10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(text = it?.name?.get(0)?.uppercase()!!, style = MaterialTheme.typography.h4, fontWeight = FontWeight.Bold)
-                    }
-                    Text(text = it?.name!!, style = MaterialTheme.typography.h6)
-                    Column(
-                        modifier = Modifier.padding(10.dp,0.dp,0.dp,0.dp)
-                    ) {
-                        Text(text = "Latest Cost:", style = MaterialTheme.typography.caption)
-                        Text(text = DecimalFormat("#,###.00").format(it.sellCost), style = MaterialTheme.typography.body1)
-                    }
-                    if (width >= WindowWidthSizeClass.Medium) {
+            if (it != null)
+                Card(
+                    onClick = {
+                        navController.navigate(route = "${Navigation.VisualizeItem(
+                            if (width == WindowWidthSizeClass.Compact) 10 else if (width == WindowWidthSizeClass.Medium) 20 else 30
+                        ).link}?name=${it.name}")
+                    },
+                    enabled = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(5.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    backgroundColor = MaterialTheme.colors.background,
+                    contentColor = MaterialTheme.colors.onBackground,
+                    elevation = 5.dp,
+                ) {
+                    Row (verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .padding(0.dp, 0.dp, 5.dp, 0.dp)
+                                .background(
+                                    color = colors[it.name
+                                        .uppercase()
+                                        .get(0)]?.copy(alpha = 1f)!!
+                                )
+                                .padding(10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = it.name.get(0).uppercase(), style = MaterialTheme.typography.h4, fontWeight = FontWeight.Bold)
+                        }
+                        Text(text = it.name, style = MaterialTheme.typography.h6)
                         Column(
                             modifier = Modifier.padding(10.dp,0.dp,0.dp,0.dp)
                         ) {
-                            Text(text = "Latest Buy Cost:", style = MaterialTheme.typography.caption)
-                            Text(text = DecimalFormat("#,###.00").format(it.buyCost), style = MaterialTheme.typography.body1)
+                            Text(text = "Latest Cost:", style = MaterialTheme.typography.caption)
+                            Text(text = DecimalFormat("#,###.00").format(it.sellCost), style = MaterialTheme.typography.body1)
+                        }
+                        if (width >= WindowWidthSizeClass.Medium) {
+                            Column(
+                                modifier = Modifier.padding(10.dp,0.dp,0.dp,0.dp)
+                            ) {
+                                Text(text = "Latest Buy Cost:", style = MaterialTheme.typography.caption)
+                                Text(text = DecimalFormat("#,###.00").format(it.buyCost), style = MaterialTheme.typography.body1)
+                            }
+                        }
+                        Column(
+                            modifier = Modifier.padding(10.dp,0.dp,0.dp,0.dp)
+                        ) {
+                            Text(text = "Stock:", style = MaterialTheme.typography.caption)
+                            Text(text = "${it.stock}", style = MaterialTheme.typography.body1)
                         }
                     }
-                    Column(
-                        modifier = Modifier.padding(10.dp,0.dp,0.dp,0.dp)
-                    ) {
-                        Text(text = "Stock:", style = MaterialTheme.typography.caption)
-                        Text(text = "${it.stock}", style = MaterialTheme.typography.body1)
-                    }
                 }
-            }
         }
         when(items.loadState.refresh) {
             is LoadState.Loading -> item {

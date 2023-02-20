@@ -2,7 +2,6 @@ package com.amrtm.android.bcalc.component.data.repository
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.util.Log
 import androidx.paging.PagingSource
 import androidx.room.*
 import com.amrtm.android.bcalc.component.data.DataConverter
@@ -17,38 +16,38 @@ import kotlin.random.Random
 // maybe its dumb ways to do test,
 // but it can might be useful when you want to test display and data in same time with local database
 object Testing {
-    val seedCount = 14
-    val itemCount = 4
-    val randLong = Random.nextLong(1000000,5000000)
-    val randomCost = Random.nextLong(1000,100000)
-    val randomDiscount = Random.nextInt(0,100)
-    val randomPurchase = Random.nextInt(40,400)
-    val randomStock = Random.nextInt(0,400)
-    val day = 86400000
-    val notes = listOf(
+    const val seedCount = 21
+    const val itemCount = 4
+    private val randLong = Random(10000)
+    private val randomCost = Random(10000)
+    private val randomDiscount = Random(10000)
+    private val randomPurchase = Random(10000)
+    private val randomStock = Random(10000)
+    const val day = 86400000
+    private val notes = listOf(
         *(0..seedCount).map {
             Note(null,Date(Date().time - (it * day)),"Note ${it+1}",
-                "Note ${it+1} Example", BigDecimal.valueOf(randLong),
-                BigDecimal.valueOf(randLong),BigDecimal.valueOf(randLong)
+                "Note ${it+1} Example", BigDecimal.valueOf(randLong.nextLong(1000000,5000000)),
+                BigDecimal.valueOf(randLong.nextLong(1000000,5000000)),BigDecimal.valueOf(randLong.nextLong(1000000,5000000))
             )
         }.toTypedArray()
     )
     val items = listOf(
         *(0..itemCount).map {
-            val cost = randomCost
-            val discount = randomDiscount
-            val purchase = randomPurchase
-            val stock = randomStock
+            val cost = randomCost.nextLong(1000,100000)
+            val discount = randomDiscount.nextInt(0,100)
+            val purchased = randomPurchase.nextInt(40,400)
+            val stock = randomStock.nextInt(0,400)
             Item(null,
                 "ITEM ${it+1}",
                 BigDecimal.valueOf(cost),
                 BigDecimal.valueOf(cost + 1000),
                 discount,
-                purchase - 38,
-                purchase,
+                purchased - 38,
+                purchased,
                 stock,
-                stock + purchase - 38,
-                BigDecimal.valueOf((cost+1000) * discount / 100 * (purchase - 38)),
+                stock + purchased - 38,
+                BigDecimal.valueOf((cost+1000) * discount / 100 * (purchased - 38)),
                 Date(Date().time - (day * it)))
         }.toTypedArray()
     )
@@ -57,24 +56,68 @@ object Testing {
         *(0..seedCount * itemCount).map {
             val count = it % (itemCount+1)
             val note = idsNote[it % (idsNote.size)]
-            val cost = randomCost
-            val discount = randomDiscount
-            val purchase = randomPurchase
-            val stock = randomStock
+            val cost = randomCost.nextLong(1000,100000)
+            val discount = randomDiscount.nextInt(0,100)
+            val purchased = randomPurchase.nextInt(40,400)
+            val stock = randomStock.nextInt(0,400)
             ItemHistory(null,
                 note,
                 "ITEM ${count+1}",
                 BigDecimal.valueOf(cost),
                 BigDecimal.valueOf(cost + 1000),
                 discount,
-                purchase - 38,
-                purchase,
+                purchased - 38,
+                purchased,
                 stock,
-                stock + purchase - 38,
-                BigDecimal.valueOf((cost+1000) * discount / 100 * (purchase - 38)),
+                stock + purchased - 38,
+                BigDecimal.valueOf((cost+1000) * discount / 100 * (purchased - 38)),
                 Date(Date().time - (day * count)))
         }.toTypedArray()
     )
+
+    fun test(it: BcalcDatabase) {
+        runBlocking {
+            val balance = Balance(id = null, income = BigDecimal.ZERO, outcome = BigDecimal.ZERO, profit = BigDecimal.ZERO,
+                lastUpdate = Date(), status = StatusBalance.Balance, noteCount = 0, itemsCount = 0)
+            var balanceId = 0L
+            val balancer = launch { balanceId = it.daoBalance().insertBalance(balance) }
+            balancer.join()
+            val arrId = mutableListOf<Long>()
+            val job1 = launch {
+                for (nt in notes)
+                    arrId.add(it.daoNote().insertNote(nt))
+            }
+            job1.join()
+
+            val itHis = itemHistorys(arrId)
+            it.daoItem().insertItemHistory(itHis)
+
+            //Add Item,Update Note and Balance
+            val itemSortedMap = itHis.sortedByDescending { it.date }.groupBy { it.name }
+            val items = itemSortedMap.keys.map { itemSortedMap[it]?.get(0)!! }
+            it.daoItem().insertItem(convertToItem(items.sortedByDescending { it.date }.distinctBy { it.name }))
+
+            val itemSorted = itHis.groupBy { it.note }
+            arrId.mapIndexed {index,i ->
+                it.daoNote().updateNote(notes[index].copy(
+                    id = i,
+                    income = itemSorted[i]!!.sumOf {item -> item.total.minus(BigDecimal.valueOf(item.buyCost.toLong() * item.purchased)) },
+                    outcome = itemSorted[i]!!.sumOf { item -> BigDecimal.valueOf(item.buyCost.toLong() * item.purchased) }
+                ))
+            }
+
+            val income = itHis.sumOf { item -> item.total }
+            val outcome = itHis.sumOf { item -> BigDecimal.valueOf(item.buyCost.toLong() * item.purchased) }
+            val profit = getStatusBalance(income, outcome)
+            it.daoBalance().updateBalance(balance.copy(
+                id = balanceId,
+                income = income,
+                outcome = outcome,
+                profit = profit.second,
+                status = profit.first
+            ))
+        }
+    }
 }
 
 @Database(entities = [Balance::class, Note::class, Item::class, ItemHistory::class], version = 1, exportSchema = false)
@@ -94,49 +137,9 @@ abstract class BcalcDatabase: RoomDatabase() {
                     .fallbackToDestructiveMigration()
                     .build().also { Instance = it }
                 // IMPORTANT, dont use this in production
-//                    .also {
-//                        runBlocking {
-//                            val balance = Balance(id = null, income = BigDecimal.ZERO, outcome = BigDecimal.ZERO, profit = BigDecimal.ZERO,
-//                                lastUpdate = Date(), status = StatusBalance.Balance, noteCount = 0, itemsCount = 0)
-//                            var balanceId = 0L
-//                            val balancer = launch { balanceId = it.daoBalance().insertBalance(balance) }
-//                            balancer.join()
-//                            val arrId = mutableListOf<Long>()
-//                            val job1 = launch {
-//                                for (nt in Testing.notes)
-//                                    arrId.add(it.daoNote().insertNote(nt))
-//                            }
-//                            job1.join()
-//
-//                            val itHis = Testing.itemHistorys(arrId)
-//                            it.daoItem().insertItemHistory(itHis)
-//
-//                            //Add Item,Update Note and Balance
-//                            val itemSortedMap = itHis.sortedByDescending { it.date }.groupBy { it.name }
-//                            val items = itemSortedMap.keys.map { itemSortedMap[it]?.get(0)!! }
-//                            it.daoItem().insertItem(convertToItem(items.sortedByDescending { it.date }.distinctBy { it.name }))
-//
-//                            val itemSorted = itHis.groupBy { it.note }
-//                            arrId.mapIndexed {index,i ->
-//                                it.daoNote().updateNote(Testing.notes[index].copy(
-//                                    id = i,
-//                                    income = itemSorted[i]!!.sumOf {item -> item.total.minus(BigDecimal.valueOf(item.buyCost.toLong() * item.purchased)) },
-//                                    outcome = itemSorted[i]!!.sumOf { item -> BigDecimal.valueOf(item.buyCost.toLong() * item.purchased) }
-//                                ))
-//                            }
-//
-//                            val income = itHis.sumOf { item -> item.total }
-//                            val outcome = itHis.sumOf { item -> BigDecimal.valueOf(item.buyCost.toLong() * item.purchased) }
-//                            val profit = getStatusBalance(income, outcome)
-//                            it.daoBalance().updateBalance(balance.copy(
-//                                id = balanceId,
-//                                income = income,
-//                                outcome = outcome,
-//                                profit = profit.second,
-//                                status = profit.first
-//                            ))
-//                        }
-//                    }
+                    .also {
+                        Testing.test(it)
+                    }
             }
         }
     }

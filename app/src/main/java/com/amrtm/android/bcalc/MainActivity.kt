@@ -68,6 +68,7 @@ fun Main(
     val drawerState: ScaffoldState = rememberScaffoldState()
     val thread: CoroutineScope = rememberCoroutineScope()
     val isNote: MutableState<Int> = remember { mutableStateOf(0) }
+    val stateNavigation: MutableState<Int> = remember { mutableStateOf(2) }
     val searchState: MutableState<Boolean> = remember { mutableStateOf(false) }
     AppBarMain(
         navigationController = navController,
@@ -78,7 +79,8 @@ fun Main(
         focus = focus,
         searchBtnTrigger = searchState,
         noteView = noteModel,
-        itemView = itemModel
+        itemView = itemModel,
+        state = stateNavigation
     ) {
         NavHost(
             navController = navController,
@@ -92,6 +94,8 @@ fun Main(
                 }
             )) {
                 val type = it.arguments?.getString("type")
+                if (stateNavigation.value != 2)
+                    stateNavigation.value = 2
                 Home(
                     padding = globalPadding,
                     numberPage = 2
@@ -156,6 +160,8 @@ fun Main(
                     isNote.value = 0
                 if (searchState.value)
                     searchState.value = false
+                if (stateNavigation.value != 1)
+                    stateNavigation.value = 1
                 Column {
                     AddNote(
                         modifier = Modifier
@@ -180,11 +186,13 @@ fun Main(
                     isNote.value = 0
                 if (searchState.value)
                     searchState.value = false
-                    visual.CreateVisualization(
-                        name = it.arguments?.getString("name"),
-                        navController = navController,
-                        width = windowSize.widthSizeClass
-                    )
+                if (stateNavigation.value != 0)
+                    stateNavigation.value = 0
+                visual.CreateVisualization(
+                    name = it.arguments?.getString("name"),
+                    navController = navController,
+                    width = windowSize.widthSizeClass
+                )
             }
         }
     }

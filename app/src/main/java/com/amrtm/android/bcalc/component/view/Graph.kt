@@ -1,19 +1,20 @@
 package com.amrtm.android.bcalc.component.view
 
+import android.graphics.Paint
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.unit.dp
-import androidx.room.util.newStringBuilder
 import co.yml.charts.axis.AxisData
 import co.yml.charts.common.extensions.formatToSinglePrecision
 import co.yml.charts.common.model.PlotType
@@ -30,6 +31,7 @@ object Graph {
         state: MutableState<Visualization.Companion.TypeStatus>,
         data: Map<Visualization.Companion.TypeStatus, Visualization.Companion.DataItem>,
     ) {
+        val index = remember{ mutableStateOf(0) }
         LineChart(
             modifier = Modifier
                 .background(MaterialTheme.colors.background)
@@ -38,8 +40,8 @@ object Graph {
             lineChartData = generateData(
                 state = state,
                 data = data,
-                backgroundLabel = MaterialTheme.colors.background,
-                labelColor = MaterialTheme.colors.onBackground
+                labelColor = MaterialTheme.colors.onBackground,
+                index = index
             )
         )
     }
@@ -51,7 +53,7 @@ object Graph {
                 val xMin = dataPoints.minOf { it.x }
                 val xMax = dataPoints.maxOf { it.x }
                 val xScale = (xMax - xMin) / steps
-                ((i * xScale) + xMin).formatToSinglePrecision()
+                ((i * xScale)).formatToSinglePrecision()
             }
             .labelAndAxisLinePadding(15.dp)
             .build()
@@ -72,20 +74,20 @@ object Graph {
     private fun generateData(
         state: MutableState<Visualization.Companion.TypeStatus>,
         data: Map<Visualization.Companion.TypeStatus, Visualization.Companion.DataItem>,
-        backgroundLabel: Color,
         labelColor: Color,
-        widthLine: Float = 3f
+        index: MutableState<Int>
     ): LineChartData {
+        val points = data[state.value]
         return LineChartData(
             xAxisData = xAxis(
-                steps = data.values.toList()[0].data.size/2,
-                dataPoints = if (state.value != Visualization.Companion.TypeStatus.ALL) data[state.value]?.data!!
-                else listOf(*data[Visualization.Companion.TypeStatus.COST]?.data?.toTypedArray()!!,*data[Visualization.Companion.TypeStatus.TOTAL]?.data?.toTypedArray()!!)
+                steps = points?.data?.size!!/4,
+                dataPoints = if (state.value != Visualization.Companion.TypeStatus.ALL) points.data
+                    else listOf(*data[Visualization.Companion.TypeStatus.COST]?.data?.toTypedArray()!!,*data[Visualization.Companion.TypeStatus.TOTAL]?.data?.toTypedArray()!!)
             ),
             yAxisData = yAxis(
                 steps = 9,
-                dataPoints = if (state.value != Visualization.Companion.TypeStatus.ALL) data[state.value]?.data!!
-                else listOf(*data[Visualization.Companion.TypeStatus.COST]?.data?.toTypedArray()!!,*data[Visualization.Companion.TypeStatus.TOTAL]?.data?.toTypedArray()!!)
+                dataPoints = if (state.value != Visualization.Companion.TypeStatus.ALL) points.data
+                    else listOf(*data[Visualization.Companion.TypeStatus.COST]?.data?.toTypedArray()!!,*data[Visualization.Companion.TypeStatus.TOTAL]?.data?.toTypedArray()!!)
             ),
             linePlotData = LinePlotData(
                 plotType = PlotType.Line,
@@ -102,27 +104,20 @@ object Graph {
                                 color = data[state.value]?.color?.pointColor1!!
                             ),
                             shadowUnderLine = ShadowUnderLine(color = data[state.value]?.color?.areaColor!!, alpha = .4f),
-//                            selectionHighlightPopUp = SelectionHighlightPopUp(
+                            selectionHighlightPopUp = SelectionHighlightPopUp(
 //                                backgroundColor = backgroundLabel,
-//                                backgroundCornerRadius = CornerRadius(10f,10f),
-//                                labelColor = labelColor,
-//                                popUpLabel = {x,y ->
-//                                    val dt = data[state.value]!!
-//                                    val index = dt.data.indexOf(Point(x,y))
-//                                    val str = newStringBuilder()
-//                                    str.append(dt.title).append("\n")
-//                                        .append(SimpleDateFormat("dd/MM/yyyy", Locale.US).format(dt.date[index])).append("\n")
-//                                        .append("-----------------------------------").append("\n")
-//                                    for (hy in dt.dataPopup) {
-//                                        str.append(hy.name).append(" : ")
-//                                        if (hy.currency)
-//                                            str.append("Rp. ${DecimalFormat("#,###.00").format(y)}\n")
-//                                        else
-//                                            str.append(y.toString())
-//                                    }
-//                                    str.toString()
-//                                }
-//                            )
+                                backgroundCornerRadius = CornerRadius(5f,5f),
+                                labelColor = labelColor,
+                                labelAlignment = if(index.value <= 1) Paint.Align.LEFT
+                                    else if(index.value >= data[state.value]?.data?.size!!-1) Paint.Align.RIGHT
+                                        else Paint.Align.CENTER,
+                                popUpLabel = {x,y ->
+                                    index.value = x.toInt()
+                                    val dt = data[state.value]
+                                    val date = SimpleDateFormat("dd/MM/yyyy", Locale.US).format(dt?.date?.get(x.toInt())!!)
+                                    if (dt.dataPopup.currency) "$date | Rp ${DecimalFormat("#,###").format(y)}.00" else "$date | ${y}"
+                                }
+                            )
                         )
                     )
                 }
@@ -139,27 +134,20 @@ object Graph {
                                 color = it.value.color.pointColor1
                             ),
                             shadowUnderLine = ShadowUnderLine(color = it.value.color.areaColor, alpha = .4f),
-//                            selectionHighlightPopUp = SelectionHighlightPopUp(
+                            selectionHighlightPopUp = SelectionHighlightPopUp(
 //                                backgroundColor = backgroundLabel,
-//                                backgroundCornerRadius = CornerRadius(10f,10f),
-//                                labelColor = labelColor,
-//                                popUpLabel = {x,y ->
-//                                    val dt = it.value
-//                                    val index = dt.data.indexOf(Point(x,y))
-//                                    val str = newStringBuilder()
-//                                    str.append(dt.title).append("\n")
-//                                        .append(SimpleDateFormat("dd/MM/yyyy", Locale.US).format(dt.date[index])).append("\n")
-//                                        .append("-----------------------------------").append("\n")
-//                                    for (hy in dt.dataPopup) {
-//                                        str.append(hy.name).append(" : ")
-//                                        if (hy.currency)
-//                                            str.append("Rp. ${DecimalFormat("#,###.00").format(y)}\n")
-//                                        else
-//                                            str.append(y.toString())
-//                                    }
-//                                    str.toString()
-//                                }
-//                            )
+                                backgroundCornerRadius = CornerRadius(5f,5f),
+                                labelColor = labelColor,
+                                labelAlignment = if(index.value <= 1) Paint.Align.LEFT
+                                else if(index.value >= data[state.value]?.data?.size!!-1) Paint.Align.RIGHT
+                                else Paint.Align.CENTER,
+                                popUpLabel = {x,y ->
+                                    index.value = x.toInt()
+                                    val dt = data[state.value]
+                                    val date = SimpleDateFormat("dd/MM/yyyy", Locale.US).format(dt?.date?.get(x.toInt())!!)
+                                    if (dt.dataPopup.currency) "$date | Rp ${DecimalFormat("#,###").format(y)}.00" else "$date | ${y}"
+                                }
+                            )
                         )
                     },
             ),

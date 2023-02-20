@@ -1,5 +1,6 @@
 package com.amrtm.android.bcalc.component.view
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -66,8 +67,8 @@ class Visualization {
             val title: String,
             val xTitle: String,
             val yTitle: String,
-            val dataPopup: List<DataLabel>,
-            val dataLegends: List<Legend>
+            val dataPopup: DataLabel,
+            val dataLegends: Legend
         )
 
         fun getDataItem(sortedData: ItemHistory,vararg types: TypeStatus,index: Int): Pair<Date,Map<TypeStatus,Point>> {
@@ -87,16 +88,16 @@ class Visualization {
 
     object Load {
         fun dataTest(): Map<TypeStatus,DataItem> {
-            val randomCost = Random.nextLong(1000,100000)
-            val randomDiscount = Random.nextInt(0,100)
-            val randomPurchase = Random.nextInt(40,400)
-            val randomStock = Random.nextInt(0,400)
+            val randomCost = Random(10000)
+            val randomDiscount = Random(10000)
+            val randomPurchase = Random(10000)
+            val randomStock = Random(10000)
             val day = 86400000
             val items = List(listOf(1..4).size) { i ->
-                val cost = randomCost
-                val discount = randomDiscount
-                val purchase = randomPurchase
-                val stock = randomStock
+                val cost = randomCost.nextLong(1000,100000)
+                val discount = randomDiscount.nextInt(0,100)
+                val purchase = randomPurchase.nextInt(40,400)
+                val stock = randomStock.nextInt(0,400)
                 ItemHistory(i.toLong()+1,
                     2,
                     "ITEM ${i}",
@@ -120,20 +121,20 @@ class Visualization {
                     xLabel = xTitle[i],
                     yLabel = yTitle[i],
                     type = type,
-                    labels = listOf(label[i]),
-                    legends = listOf(legends[i]),
+                    labels = label[i],
+                    legends = legends[i],
                     date = items.map { it.first }
                 )
             }.toMap()
         }
         val type = listOf(TypeStatus.COST,TypeStatus.SOLD,TypeStatus.STOCK,TypeStatus.TOTAL)
-        val title = listOf("Cost Item","Sold Item","Stock Item","Total")
+        val title = listOf("Cost Item","Sold Item","Stock Item","Total Income")
         val xTitle = listOf("Date History","Date History","Date History","Date History")
-        val yTitle = listOf("Cost History","Count Sold History","Stock Item History","Total History")
+        val yTitle = listOf("Cost","Count","In Stock","Total")
         val label = listOf(
             DataLabel(/*Color(0xFFFC7300),*/"Cost",true),
-            DataLabel(/*Color.Green,*/"Count Sold",true),
-            DataLabel(/*Color.Blue,*/"In Stock",true),
+            DataLabel(/*Color.Green,*/"Count Sold",false),
+            DataLabel(/*Color.Blue,*/"In Stock",false),
             DataLabel(/*Color.Cyan,*/"Total Income",true),
         )
         val legends = listOf(
@@ -293,10 +294,10 @@ class Visualization {
         typesButton: List<TypeStatus>,
         modifier: Modifier,
         view: ItemViewModel,
-        state: MutableState<TypeStatus> = remember { mutableStateOf(TypeStatus.ALL) }
+        state: MutableState<TypeStatus> = remember { mutableStateOf(TypeStatus.COST) }
     ) {
         val items = view.dataVisual.collectAsState(initial = listOf()).value.mapIndexed {i,it ->
-            getDataItem(it,*Load.type.toTypedArray(), index = i+1)
+            getDataItem(it,*Load.type.toTypedArray(), index = i)
         }
         Card(
             modifier = modifier,
@@ -307,28 +308,34 @@ class Visualization {
                 LazyHorizontalGrid(
                     modifier = modifier
                         .padding(0.dp, 10.dp, 0.dp, 5.dp)
-                        .height(120.dp)
+                        .height(50.dp)
                         .padding(0.dp),
-                    contentPadding = PaddingValues(5.dp),
+                    contentPadding = PaddingValues(10.dp,0.dp),
                     rows = GridCells.Adaptive(40.dp)
                 ) {
-                    item {
-                        OutlinedButton(
-                            modifier = Modifier
-                                .padding(4.dp, 5.dp)
-                                .padding(0.dp),
-                            shape = RoundedCornerShape(50),
-                            onClick = { state.value = TypeStatus.ALL }
-                        ) {
-                            Text(text = "all")
-                        }
-                    }
+//                    item {
+//                        OutlinedButton(
+//                            modifier = Modifier
+//                                .padding(4.dp, 5.dp)
+//                                .padding(0.dp),
+//                            shape = RoundedCornerShape(50),
+//                            onClick = { state.value = TypeStatus.ALL }
+//                        ) {
+//                            Text(text = "all")
+//                        }
+//                    }
                     items(typesButton) {
+                        val background by animateColorAsState(targetValue = if(state.value == it) MaterialTheme.colors.secondary else Color.Transparent)
+                        val content by animateColorAsState(targetValue = if(state.value == it) Color.White else MaterialTheme.colors.secondary)
                         OutlinedButton(
                             modifier = Modifier
                                 .padding(4.dp, 5.dp)
                                 .padding(0.dp),
                             shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                backgroundColor = background,
+                                contentColor = content
+                            ),
                             onClick = { state.value = it }
                         ) {
                             Text(text = it.name.lowercase())
@@ -345,8 +352,8 @@ class Visualization {
                                     xLabel = Load.xTitle[i],
                                     yLabel = Load.yTitle[i],
                                     type = type,
-                                    labels = listOf(Load.label[i]),
-                                    legends = listOf(Load.legends[i]),
+                                    labels = Load.label[i],
+                                    legends = Load.legends[i],
                                     date = items.map { it.first }
                                 )
                             }.toMap(),
@@ -383,10 +390,11 @@ class Visualization {
                     maxLines = 3, style = MaterialTheme.typography.caption,
                     textAlign = TextAlign.Center
                 )
-                Graph.LineGraph(
-                    state = state,
-                    data = data
-                )
+                if (data.isNotEmpty())
+                    Graph.LineGraph(
+                        state = state,
+                        data = data
+                    )
             }
             Text(
                 modifier = Modifier.fillMaxWidth(),
@@ -398,11 +406,11 @@ class Visualization {
         Box(modifier = Modifier
             .padding(0.dp)
             .fillMaxWidth()
-            .padding(10.dp,0.dp,10.dp,20.dp)) {
+            .padding(10.dp, 0.dp, 10.dp, 20.dp)) {
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
             ) {
-                for(dt in if (state.value != TypeStatus.ALL) data[state.value]?.dataLegends!! else data.map { it.value.dataLegends.first() })
+                for(dt in if (state.value != TypeStatus.ALL) listOf(data[state.value]?.dataLegends!!) else data.map { it.value.dataLegends })
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(imageVector = dt.icon, contentDescription = null, tint = dt.color)
                         Text(text = dt.name)
