@@ -1,5 +1,5 @@
 # BCalc
-This is my first Apps in Android Dev, its using for Bussiness Calculator and It`s developed using Jetpack Compose library.
+This is my first App in Android Dev, It's used for business calculators and It`s developed using the Jetpack Compose library.
 ## Screenshot of UI
 <p align='center' width='100%' maxWidth='100%'>
   <img src='https://github.com/Noob-programmer155/B_Calc/assets/68941228/dedb8753-fc99-4015-83d8-09eb03485393' style='width:32%;max-width:300px;height:600px'/>
